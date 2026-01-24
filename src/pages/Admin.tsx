@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
 import { format } from "date-fns";
 import {
   Search,
@@ -19,6 +20,8 @@ import {
   ChevronRight,
   LogIn,
   Shield,
+  Plus,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +44,7 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   
   // Auth form state
   const [email, setEmail] = useState("");
@@ -200,10 +204,23 @@ const Admin = () => {
   return (
     <AppLayout>
       <PageHeader title="Admin" subtitle={`${events?.length || 0} events`}>
-        <Button variant="outline" size="sm" onClick={signOut}>
-          Sign Out
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowImportDialog(true)}
+            className="gap-1"
+          >
+            <Link2 className="h-4 w-4" />
+            Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={signOut}>
+            Sign Out
+          </Button>
+        </div>
       </PageHeader>
+      
+      {/* Import Dialog */}
+      <ImportEventDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
 
       {/* Filters */}
       <div className="sticky top-[73px] bg-background/95 backdrop-blur-md z-30 border-b border-border p-4 space-y-3">
