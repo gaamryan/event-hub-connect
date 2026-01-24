@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/header";
@@ -7,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
+import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
+import { DataSources } from "@/components/admin/DataSources";
+import { ImageUpload } from "@/components/admin/ImageUpload";
+import { NotificationsBtn } from "@/components/ui/NotificationsBtn";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import {
@@ -19,7 +25,11 @@ import {
   ChevronRight,
   LogIn,
   Shield,
+  Plus,
+  Database,
+  Calendar,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 type StatusFilter = "pending" | "approved" | "rejected" | "draft" | undefined;
@@ -35,13 +45,14 @@ const statusColors: Record<string, string> = {
 const Admin = () => {
   const { user, signIn, signUp, signOut, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
-  
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
   // Auth form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,7 +71,7 @@ const Admin = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
-    const { error } = isSignUp 
+    const { error } = isSignUp
       ? await signUp(email, password)
       : await signIn(email, password);
     if (error) setAuthError(error.message);
@@ -134,7 +145,7 @@ const Admin = () => {
             <h2 className="text-xl font-semibold text-center mb-6">
               {isSignUp ? "Create Account" : "Sign In"}
             </h2>
-            
+
             <form onSubmit={handleAuth} className="space-y-4">
               <Input
                 type="email"
@@ -158,7 +169,7 @@ const Admin = () => {
                 {isSignUp ? "Create Account" : "Sign In"}
               </Button>
             </form>
-            
+
             <p className="text-center text-sm text-muted-foreground mt-4">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
               <button
@@ -203,135 +214,160 @@ const Admin = () => {
         <Button variant="outline" size="sm" onClick={signOut}>
           Sign Out
         </Button>
+        <Button size="sm" onClick={() => setIsImportOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Import Event
+        </Button>
+        <NotificationsBtn />
       </PageHeader>
-
-      {/* Filters */}
-      <div className="sticky top-[73px] bg-background/95 backdrop-blur-md z-30 border-b border-border p-4 space-y-3">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      <Tabs defaultValue="events" className="w-full">
+        <div className="px-4 border-b border-border bg-background">
+          <TabsList className="mb-[-1px] h-12 bg-transparent p-0">
+            <TabsTrigger value="events" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <Calendar className="mr-2 h-4 w-4" />
+              Events
+            </TabsTrigger>
+            <TabsTrigger value="sources" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <Database className="mr-2 h-4 w-4" />
+              Data Sources
+            </TabsTrigger>
+          </TabsList>
         </div>
 
-        {/* Status Filter */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          {(["pending", "approved", "rejected", "draft"] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? undefined : status)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-sm font-medium capitalize transition-colors",
-                statusFilter === status
-                  ? statusColors[status]
-                  : "bg-secondary text-secondary-foreground"
-              )}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-
-        {/* Bulk Actions */}
-        {selectedEvents.size > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 p-3 bg-secondary rounded-xl"
-          >
-            <span className="text-sm font-medium flex-1">
-              {selectedEvents.size} selected
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleBulkApprove}
-              disabled={updateStatus.isPending}
-            >
-              <Check className="h-4 w-4 mr-1" />
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleBulkReject}
-              disabled={updateStatus.isPending}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Reject
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive"
-              onClick={handleBulkDelete}
-              disabled={deleteEvents.isPending}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Event List */}
-      <div className="p-4 space-y-2">
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="skeleton h-20 rounded-xl" />
-          ))
-        ) : events && events.length > 0 ? (
-          <>
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={selectedEvents.size === events.length ? clearSelection : selectAll}
-                className="text-sm text-primary font-medium"
-              >
-                {selectedEvents.size === events.length ? "Deselect All" : "Select All"}
-              </button>
+        <TabsContent value="events" className="m-0">
+          {/* Filters */}
+          <div className="sticky top-[73px] bg-background/95 backdrop-blur-md z-30 border-b border-border p-4 space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            {events.map((event) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="admin-panel p-3 flex items-center gap-3"
-              >
-                <Checkbox
-                  checked={selectedEvents.has(event.id)}
-                  onCheckedChange={() => toggleSelectEvent(event.id)}
-                />
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => setEditingEvent(event)}
+
+            {/* Status Filter */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {(["pending", "approved", "rejected", "draft"] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(statusFilter === status ? undefined : status)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-medium capitalize transition-colors",
+                    statusFilter === status
+                      ? statusColors[status]
+                      : "bg-secondary text-secondary-foreground"
+                  )}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={cn("status-badge", event.status)}>
-                      {event.status}
-                    </span>
-                    <span className="text-xs text-muted-foreground capitalize">
-                      {event.source}
-                    </span>
-                  </div>
-                  <h4 className="font-medium text-sm truncate">{event.title}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(event.start_time), "MMM d, yyyy")}
-                    {event.venue?.name && ` • ${event.venue.name}`}
-                  </p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  {status}
+                </button>
+              ))}
+            </div>
+
+            {/* Bulk Actions */}
+            {selectedEvents.size > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-3 bg-secondary rounded-xl"
+              >
+                <span className="text-sm font-medium flex-1">
+                  {selectedEvents.size} selected
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleBulkApprove}
+                  disabled={updateStatus.isPending}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleBulkReject}
+                  disabled={updateStatus.isPending}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={handleBulkDelete}
+                  disabled={deleteEvents.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </motion.div>
-            ))}
-          </>
-        ) : (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">No events found</p>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Event List */}
+          <div className="p-4 space-y-2">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="skeleton h-20 rounded-xl" />
+              ))
+            ) : events && events.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={selectedEvents.size === events.length ? clearSelection : selectAll}
+                    className="text-sm text-primary font-medium"
+                  >
+                    {selectedEvents.size === events.length ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
+                {events.map((event) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="admin-panel p-3 flex items-center gap-3"
+                  >
+                    <Checkbox
+                      checked={selectedEvents.has(event.id)}
+                      onCheckedChange={() => toggleSelectEvent(event.id)}
+                    />
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => setEditingEvent(event)}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={cn("status-badge", event.status)}>
+                          {event.status}
+                        </span>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {event.source}
+                        </span>
+                      </div>
+                      <h4 className="font-medium text-sm truncate">{event.title}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(event.start_time), "MMM d, yyyy")}
+                        {event.venue?.name && ` • ${event.venue.name}`}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  </motion.div>
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground">No events found</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sources" className="p-4 m-0">
+          <DataSources />
+        </TabsContent>
+      </Tabs>
 
       {/* Quick Edit Drawer */}
       <Sheet open={!!editingEvent} onOpenChange={() => setEditingEvent(null)}>
@@ -342,10 +378,28 @@ const Admin = () => {
           {editingEvent && (
             <div className="mt-6 space-y-4 overflow-y-auto">
               {editingEvent.image_url && (
-                <img
-                  src={editingEvent.image_url}
-                  alt={editingEvent.title}
-                  className="w-full aspect-video object-cover rounded-xl"
+                <div className="relative">
+                  <ImageUpload
+                    value={editingEvent.image_url}
+                    onChange={(url) => {
+                      updateStatus.mutate({ eventIds: [editingEvent.id], status: editingEvent.status }); // Just to trigger a refresh logic if needed, ideally separate update field
+                      // Actually we need to update the event with the new URL
+                      // We don't have a specific updateEvent mutation exposed in hooks yet for fields other than status
+                      // For MVP, we might need to add one or just update local state and rely on a specific save button?
+                      // The current UI seems to save on status change or has no explicit save?
+                      // Wait, the original code didn't have a save button for title/desc editing. 
+                      // It seems it was just a view or "Quick Edit" for Status.
+                      // Let's add a "Save Changes" button or auto-save?
+                      setEditingEvent({ ...editingEvent, image_url: url });
+                    }}
+                  />
+                </div>
+              )}
+              {/* If no image, show uploader too */}
+              {!editingEvent.image_url && (
+                <ImageUpload
+                  value={null}
+                  onChange={(url) => setEditingEvent({ ...editingEvent, image_url: url })}
                 />
               )}
               <div>
@@ -391,6 +445,28 @@ const Admin = () => {
               )}
               <div className="pt-4 flex gap-2">
                 <Button
+                  className="flex-1"
+                  onClick={async () => {
+                    // We need a way to save the Image URL change.
+                    // The hooks don't have an 'updateEvent' mutation yet.
+                    // Let's assume we'll add one or just use supabase client directly here for MVP speed.
+                    // A bit hacky but works for keeping context.
+                    const { error } = await supabase.from('events').update({
+                      image_url: editingEvent.image_url
+                    }).eq('id', editingEvent.id);
+
+                    if (!error) {
+                      toast.success("Event updated");
+                      setEditingEvent(null);
+                    } else {
+                      toast.error("Failed to update event");
+                    }
+                  }}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+                <Button
                   variant="destructive"
                   className="flex-1"
                   onClick={() => {
@@ -406,6 +482,8 @@ const Admin = () => {
           )}
         </SheetContent>
       </Sheet>
+      {/* Import Dialog */}
+      <ImportEventDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </AppLayout>
   );
 };

@@ -1,1 +1,16 @@
 project_id = "wytjvdafpdspizmrqjsn"
+
+[functions.sync-events]
+verify_jwt = false
+
+[functions.auth-connect]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.send-email-digest]
+verify_jwt = false
+
+[functions.optimize-image]
+verify_jwt = false
