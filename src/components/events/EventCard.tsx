@@ -1,0 +1,136 @@
+import { motion } from "framer-motion";
+import { Calendar, MapPin, Bookmark, BookmarkCheck } from "lucide-react";
+import { format } from "date-fns";
+
+interface EventCardProps {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  startTime: Date;
+  venueName?: string;
+  categoryName?: string;
+  categoryIcon?: string;
+  categoryColor?: string;
+  isFree?: boolean;
+  priceMin?: number;
+  priceMax?: number;
+  isSaved?: boolean;
+  onSave?: (id: string) => void;
+  onClick?: (id: string) => void;
+}
+
+export function EventCard({
+  id,
+  title,
+  description,
+  imageUrl,
+  startTime,
+  venueName,
+  categoryName,
+  categoryIcon,
+  categoryColor,
+  isFree,
+  priceMin,
+  priceMax,
+  isSaved,
+  onSave,
+  onClick,
+}: EventCardProps) {
+  const formattedDate = format(new Date(startTime), "EEE, MMM d • h:mm a");
+
+  const getPriceDisplay = () => {
+    if (isFree) return "Free";
+    if (priceMin && priceMax && priceMin !== priceMax) {
+      return `$${priceMin} - $${priceMax}`;
+    }
+    if (priceMin) return `$${priceMin}`;
+    return null;
+  };
+
+  const price = getPriceDisplay();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="event-card cursor-pointer touch-feedback"
+      onClick={() => onClick?.(id)}
+    >
+      {/* Image */}
+      <div className="relative aspect-[16/10] bg-muted overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-primary opacity-20" />
+        )}
+        
+        {/* Save Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave?.(id);
+          }}
+          className="absolute top-3 right-3 w-10 h-10 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+        >
+          {isSaved ? (
+            <BookmarkCheck className="h-5 w-5 text-primary" />
+          ) : (
+            <Bookmark className="h-5 w-5 text-foreground" />
+          )}
+        </button>
+
+        {/* Price Badge */}
+        {price && (
+          <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-card/90 backdrop-blur-sm text-sm font-semibold">
+            {price}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-2">
+        {/* Category & Date */}
+        <div className="flex items-center gap-2 text-sm">
+          {categoryName && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: categoryColor ? `${categoryColor}20` : undefined,
+                color: categoryColor || undefined,
+              }}
+            >
+              {categoryIcon && <span>{categoryIcon}</span>}
+              {categoryName}
+            </span>
+          )}
+          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground">{formattedDate}</span>
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-lg line-clamp-2">{title}</h3>
+
+        {/* Description */}
+        {description && (
+          <p className="text-muted-foreground text-sm line-clamp-2">
+            {description.replace(/<[^>]*>/g, '')}
+          </p>
+        )}
+
+        {/* Venue */}
+        {venueName && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{venueName}</span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
