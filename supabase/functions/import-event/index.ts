@@ -6,6 +6,12 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Platforms that block server-side scraping
+const BLOCKED_PLATFORMS = [
+    { domain: "facebook.com", name: "Facebook" },
+    { domain: "fb.com", name: "Facebook" },
+];
+
 serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -20,15 +26,49 @@ serve(async (req) => {
 
         console.log(`Fetching URL: ${url}`);
 
-        // Fetch the HTML content
+        // Check if platform blocks scraping
+        const blockedPlatform = BLOCKED_PLATFORMS.find(p => url.includes(p.domain));
+        if (blockedPlatform) {
+            // Return a template for manual entry with the source URL preserved
+            console.log(`Platform ${blockedPlatform.name} blocks scraping, returning template`);
+            return new Response(JSON.stringify({
+                title: "",
+                description: `Event from ${blockedPlatform.name} - please enter details manually`,
+                start_time: new Date().toISOString(),
+                image_url: null,
+                source_url: url,
+                end_time: null,
+                ticket_url: url,
+                price_min: null,
+                price_max: null,
+                is_free: false,
+                status: "draft",
+                source: blockedPlatform.name.toLowerCase(),
+                _warning: `${blockedPlatform.name} events cannot be automatically imported. Please fill in the event details manually.`,
+            }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
+        // Fetch the HTML content with browser-like headers
         const response = await fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
             },
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch URL: ${response.statusText}`);
+            console.error(`Fetch failed with status: ${response.status} ${response.statusText}`);
+            throw new Error(`Could not access the URL. The website may be blocking automated access. (${response.status})`);
         }
 
         const html = await response.text();
@@ -83,12 +123,12 @@ serve(async (req) => {
         let source = "manual";
         if (url.includes("eventbrite.com")) source = "eventbrite";
         else if (url.includes("meetup.com")) source = "meetup";
-        else if (url.includes("facebook.com")) source = "facebook";
+        else if (url.includes("facebook.com") || url.includes("fb.com")) source = "facebook";
         else if (url.includes("ticketspice.com")) source = "ticketspice";
 
         const eventData = {
-            title,
-            description,
+            title: title.trim(),
+            description: description.trim(),
             start_time,
             image_url: imageUrl,
             source_url: url,
@@ -101,12 +141,15 @@ serve(async (req) => {
             source,
         };
 
+        console.log(`Successfully parsed event: ${eventData.title}`);
+
         return new Response(JSON.stringify(eventData), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Import error: ${message}`);
         return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -19,6 +19,7 @@ interface ScrapedEvent {
   status: "draft" | "pending" | "approved" | "rejected";
   source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
   venue?: { name: string } | null;
+  _warning?: string;
 }
 
 interface ImportEventDialogProps {
@@ -42,15 +43,27 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
     setPreviewData(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('import-event', {
+      const { data, error: fnError } = await supabase.functions.invoke('import-event', {
         body: { url },
       });
 
-      if (error) throw error;
+      if (fnError) throw fnError;
+      
+      // Check for error in response body
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
       setPreviewData(data);
-    } catch (err) {
+      
+      // Show warning toast if platform blocks scraping
+      if (data?._warning) {
+        toast.warning(data._warning);
+      }
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Failed to fetch event data. Please check the URL and try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch event data. Please check the URL and try again.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +144,14 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
           </form>
         ) : (
           <div className="space-y-4 py-4">
+            {/* Warning for platforms that need manual entry */}
+            {previewData._warning && (
+              <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm p-3 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{previewData._warning}</span>
+              </div>
+            )}
+
             {previewData.image_url && (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 <img
