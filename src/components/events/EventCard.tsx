@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Bookmark, BookmarkCheck } from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface EventCardProps {
   id: string;
@@ -37,6 +38,7 @@ export function EventCard({
   onSave,
   onClick,
 }: EventCardProps) {
+  const navigate = useNavigate();
   const formattedDate = format(new Date(startTime), "EEE, MMM d • h:mm a");
 
   const getPriceDisplay = () => {
@@ -50,12 +52,20 @@ export function EventCard({
 
   const price = getPriceDisplay();
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick(id);
+    } else {
+      navigate(`/events/${id}`);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="event-card cursor-pointer touch-feedback"
-      onClick={() => onClick?.(id)}
+      onClick={handleClick}
     >
       {/* Image */}
       <div className="relative aspect-[16/10] bg-muted overflow-hidden">
