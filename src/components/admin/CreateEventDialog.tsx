@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ImageUpload } from "@/components/admin/ImageUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCategories } from "@/hooks/useCategories";
@@ -404,21 +405,32 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
               )}
             </div>
 
-            {/* URLs */}
-            <div className="space-y-3">
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>Event Image</Label>
+              <ImageUpload
+                value={form.watch("image_url") || null}
+                onChange={(url) => form.setValue("image_url", url)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload an image or paste a URL below
+              </p>
               <FormField
                 control={form.control}
                 name="image_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <Input placeholder="Or paste image URL..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Other URLs */}
+            <div className="space-y-3">
               <FormField
                 control={form.control}
                 name="ticket_url"
