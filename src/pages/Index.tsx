@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/header";
 import { EventCard } from "@/components/events/EventCard";
@@ -10,6 +10,7 @@ import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawe
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 import { useApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,9 +24,9 @@ const Index = () => {
     filters,
     sortBy,
   });
-  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const { data: categories } = useCategories();
 
-  // Count active filters
+  // Count active filters (excluding search)
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.dateFrom || filters.dateTo) count++;
@@ -33,9 +34,8 @@ const Index = () => {
     if (filters.priceMin || filters.priceMax) count++;
     if (filters.location) count++;
     if (filters.categoryIds && filters.categoryIds.length > 0) count++;
-    if (searchQuery) count++;
     return count;
-  }, [filters, searchQuery]);
+  }, [filters]);
 
   // Client-side search filtering
   const filteredEvents = useMemo(() => {
@@ -106,15 +106,34 @@ const Index = () => {
       <div className="sticky top-[73px] bg-background/95 backdrop-blur-md z-30 border-b border-border">
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <FilterDrawer
-                filters={filters}
-                onFiltersChange={setFilters}
-                activeFilterCount={activeFilterCount}
-                categories={categories || []}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
+            {/* Search Input with Filter Button Inside */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-12 h-11"
               />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-10 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+              {/* Filter Button Inside Search Bar */}
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                <FilterDrawer
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  activeFilterCount={activeFilterCount}
+                  categories={categories || []}
+                />
+              </div>
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
           </div>
@@ -191,11 +210,11 @@ const Index = () => {
             <div className="text-6xl mb-4">🎉</div>
             <h3 className="text-lg font-semibold mb-2">No events found</h3>
             <p className="text-muted-foreground text-sm">
-              {activeFilterCount > 0
+              {activeFilterCount > 0 || searchQuery
                 ? "Try adjusting your filters to see more events."
                 : "Events will appear here once approved."}
             </p>
-            {activeFilterCount > 0 && (
+            {(activeFilterCount > 0 || searchQuery) && (
               <Button
                 variant="outline"
                 size="sm"

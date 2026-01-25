@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Search, X } from "lucide-react";
+import { CalendarIcon, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -47,8 +47,6 @@ interface FilterDrawerProps {
   onFiltersChange: (filters: EventFilters) => void;
   activeFilterCount: number;
   categories: Category[];
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
 }
 
 export function FilterDrawer({ 
@@ -56,8 +54,6 @@ export function FilterDrawer({
   onFiltersChange, 
   activeFilterCount,
   categories,
-  searchQuery,
-  onSearchChange,
 }: FilterDrawerProps) {
   const [localFilters, setLocalFilters] = useState<EventFilters>(filters);
   const [open, setOpen] = useState(false);
@@ -96,25 +92,23 @@ export function FilterDrawer({
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger asChild>
-        <div className="relative w-full cursor-pointer">
-          <div className="flex items-center gap-2 w-full h-12 px-4 rounded-xl bg-secondary/50 border border-border hover:bg-secondary/70 transition-colors">
-            <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-            <span className="text-muted-foreground flex-1 text-left truncate">
-              {searchQuery || "Search events, filter by date, category..."}
+        <button
+          type="button"
+          className="flex items-center justify-center h-9 w-9 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors relative"
+        >
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+              {activeFilterCount}
             </span>
-            {activeFilterCount > 0 && (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                {activeFilterCount}
-              </span>
-            )}
-          </div>
-        </div>
+          )}
+        </button>
       </DrawerTrigger>
       <DrawerContent className="max-h-[90vh]">
         <div className="mx-auto w-full max-w-lg">
           <DrawerHeader className="pb-2">
             <DrawerTitle className="flex items-center justify-between">
-              <span>Search & Filter</span>
+              <span>Filters</span>
               {activeFilterCount > 0 && (
                 <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
                   Clear all
@@ -125,30 +119,6 @@ export function FilterDrawer({
 
           <ScrollArea className="h-[60vh] px-4">
             <div className="space-y-6 pb-4">
-              {/* Search Input */}
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">Search</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search events..."
-                    value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    className="pl-10"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => onSearchChange("")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
               {/* Categories */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Categories</Label>
