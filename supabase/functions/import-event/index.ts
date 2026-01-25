@@ -23,92 +23,109 @@ function getSourceFromUrl(url: string): string {
     return "manual";
 }
 
-// Extract event data using Tavily
-async function extractWithTavily(url: string, apiKey: string) {
+// Extract event data using Tavily - returns null if extraction fails
+async function extractWithTavily(url: string, apiKey: string): Promise<Record<string, unknown> | null> {
     console.log(`Using Tavily to extract: ${url}`);
     
-    const response = await fetch("https://api.tavily.com/extract", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            api_key: apiKey,
-            urls: [url],
-        }),
-    });
+    try {
+        const response = await fetch("https://api.tavily.com/extract", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                api_key: apiKey,
+                urls: [url],
+            }),
+        });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Tavily API error: ${response.status} - ${errorText}`);
-        throw new Error(`Tavily extraction failed: ${response.status}`);
-    }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Tavily API error: ${response.status} - ${errorText}`);
+            return null;
+        }
 
-    const data = await response.json();
-    console.log("Tavily response:", JSON.stringify(data, null, 2));
+        const data = await response.json();
+        console.log("Tavily response:", JSON.stringify(data, null, 2));
 
-    if (!data.results || data.results.length === 0) {
-        throw new Error("No content extracted by Tavily");
-    }
+        // Check for failed results
+        if (data.failed_results && data.failed_results.length > 0) {
+            console.log("Tavily failed to fetch URL:", data.failed_results[0].error);
+            return null;
+        }
 
-    const result = data.results[0];
-    const rawContent = result.raw_content || "";
-    
-    // Try to extract structured data from the raw content
-    let title = "";
-    let description = "";
-    let imageUrl: string | null = null;
-    let startTime = new Date().toISOString();
+        if (!data.results || data.results.length === 0) {
+            console.log("No results returned by Tavily");
+            return null;
+        }
 
-    // Extract title - look for common patterns
-    const titleMatch = rawContent.match(/^#\s*(.+)$/m) || 
-                       rawContent.match(/^(.{10,100}?)[\n\r]/);
-    if (titleMatch) {
-        title = titleMatch[1].trim();
-    }
+        const result = data.results[0];
+        const rawContent = result.raw_content || "";
+        
+        if (!rawContent || rawContent.length < 50) {
+            console.log("Tavily returned insufficient content");
+            return null;
+        }
+        
+        // Try to extract structured data from the raw content
+        let title = "";
+        let description = "";
+        const imageUrl: string | null = null;
+        let startTime = new Date().toISOString();
 
-    // Use first paragraph as description
-    const paragraphs = rawContent.split(/\n\n+/).filter((p: string) => p.trim().length > 50);
-    if (paragraphs.length > 0) {
-        description = paragraphs[0].trim().slice(0, 500);
-    }
+        // Extract title - look for common patterns
+        const titleMatch = rawContent.match(/^#\s*(.+)$/m) || 
+                           rawContent.match(/^(.{10,100}?)[\n\r]/);
+        if (titleMatch) {
+            title = titleMatch[1].trim();
+        }
 
-    // Try to find date patterns
-    const datePatterns = [
-        /(\w+ \d{1,2},? \d{4})/i,
-        /(\d{1,2}\/\d{1,2}\/\d{4})/,
-        /(\d{4}-\d{2}-\d{2})/,
-    ];
-    for (const pattern of datePatterns) {
-        const match = rawContent.match(pattern);
-        if (match) {
-            try {
-                const parsed = new Date(match[1]);
-                if (!isNaN(parsed.getTime())) {
-                    startTime = parsed.toISOString();
-                    break;
+        // Use first paragraph as description
+        const paragraphs = rawContent.split(/\n\n+/).filter((p: string) => p.trim().length > 50);
+        if (paragraphs.length > 0) {
+            description = paragraphs[0].trim().slice(0, 500);
+        }
+
+        // Try to find date patterns
+        const datePatterns = [
+            /(\w+ \d{1,2},? \d{4})/i,
+            /(\d{1,2}\/\d{1,2}\/\d{4})/,
+            /(\d{4}-\d{2}-\d{2})/,
+        ];
+        for (const pattern of datePatterns) {
+            const match = rawContent.match(pattern);
+            if (match) {
+                try {
+                    const parsed = new Date(match[1]);
+                    if (!isNaN(parsed.getTime())) {
+                        startTime = parsed.toISOString();
+                        break;
+                    }
+                } catch {
+                    // Continue to next pattern
                 }
-            } catch {
-                // Continue to next pattern
             }
         }
-    }
 
-    return {
-        title: title || "Untitled Event",
-        description: description || "Event details extracted via Tavily",
-        start_time: startTime,
-        image_url: imageUrl,
-        source_url: url,
-        end_time: null,
-        ticket_url: url,
-        price_min: null,
-        price_max: null,
-        is_free: false,
-        status: "draft",
-        source: getSourceFromUrl(url),
-        _note: "Content extracted using Tavily - please review and edit details",
-    };
+        return {
+            title: title || "Untitled Event",
+            description: description || "Event details extracted via Tavily",
+            start_time: startTime,
+            image_url: imageUrl,
+            source_url: url,
+            end_time: null,
+            ticket_url: url,
+            price_min: null,
+            price_max: null,
+            is_free: false,
+            status: "draft",
+            source: getSourceFromUrl(url),
+            _note: "Content extracted using Tavily - please review and edit details",
+        };
+    } catch (error) {
+        console.error("Tavily extraction error:", error);
+        return null;
+    }
 }
 
 // Standard scraping with fetch + DOM parsing
@@ -216,45 +233,70 @@ serve(async (req) => {
         const tavilyApiKey = Deno.env.get("TAVILY_API_KEY");
 
         let eventData;
+        const platformInfo = TAVILY_PLATFORMS.find(p => url.includes(p.domain));
 
-        if (needsTavily && tavilyApiKey) {
-            // Use Tavily for platforms that block standard scraping
-            console.log(`Platform ${needsTavily.name} detected, using Tavily`);
-            eventData = await extractWithTavily(url, tavilyApiKey);
-        } else if (needsTavily && !tavilyApiKey) {
-            // No Tavily key, return template for manual entry
-            console.log(`Platform ${needsTavily.name} detected but no Tavily key, returning template`);
-            eventData = {
-                title: "",
-                description: `Event from ${needsTavily.name} - please enter details manually`,
-                start_time: new Date().toISOString(),
-                image_url: null,
-                source_url: url,
-                end_time: null,
-                ticket_url: url,
-                price_min: null,
-                price_max: null,
-                is_free: false,
-                status: "draft",
-                source: getSourceFromUrl(url),
-                _warning: `${needsTavily.name} events require manual entry. Configure Tavily API for automatic extraction.`,
-            };
+        if (platformInfo) {
+            // Platform that typically blocks scraping
+            console.log(`Platform ${platformInfo.name} detected`);
+            
+            if (tavilyApiKey) {
+                // Try Tavily first
+                eventData = await extractWithTavily(url, tavilyApiKey);
+            }
+            
+            // If Tavily failed or wasn't available, return manual entry template
+            if (!eventData) {
+                console.log(`Returning manual entry template for ${platformInfo.name}`);
+                eventData = {
+                    title: "",
+                    description: "",
+                    start_time: new Date().toISOString(),
+                    image_url: null,
+                    source_url: url,
+                    end_time: null,
+                    ticket_url: url,
+                    price_min: null,
+                    price_max: null,
+                    is_free: false,
+                    status: "draft",
+                    source: getSourceFromUrl(url),
+                    _warning: `${platformInfo.name} blocks automated access. Please enter event details manually.`,
+                };
+            }
         } else {
             // Standard scraping for other platforms
             try {
                 eventData = await extractWithFetch(url);
             } catch (fetchError) {
-                // If standard fetch fails and we have Tavily, try it as fallback
+                // If standard fetch fails, try Tavily as fallback
                 if (tavilyApiKey) {
                     console.log("Standard fetch failed, trying Tavily as fallback");
                     eventData = await extractWithTavily(url, tavilyApiKey);
-                } else {
-                    throw fetchError;
+                }
+                
+                // If still no data, return manual entry template
+                if (!eventData) {
+                    console.log("All extraction methods failed, returning manual entry template");
+                    eventData = {
+                        title: "",
+                        description: "",
+                        start_time: new Date().toISOString(),
+                        image_url: null,
+                        source_url: url,
+                        end_time: null,
+                        ticket_url: url,
+                        price_min: null,
+                        price_max: null,
+                        is_free: false,
+                        status: "draft",
+                        source: getSourceFromUrl(url),
+                        _warning: `Could not automatically extract event details. Please enter them manually.`,
+                    };
                 }
             }
         }
 
-        console.log(`Successfully extracted: ${eventData.title}`);
+        console.log(`Returning event data: ${eventData.title || "(manual entry)"}`);
 
         return new Response(JSON.stringify(eventData), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
