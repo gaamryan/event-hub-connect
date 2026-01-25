@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Categories from "./pages/Categories";
 import Saved from "./pages/Saved";
 import Admin from "./pages/Admin";
+import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/saved" element={<Saved />} />
           <Route path="/admin" element={<Admin />} />
