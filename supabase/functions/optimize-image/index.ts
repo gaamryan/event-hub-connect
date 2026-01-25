@@ -1,7 +1,5 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// Using ImageScript for pure TS image manipulation in Deno
 import { Image } from "https://deno.land/x/imagescript@1.2.15/mod.ts";
 
 const corsHeaders = {
@@ -33,9 +31,7 @@ serve(async (req) => {
             image.resize(1200, Image.RESIZE_AUTO);
         }
 
-        // Encode as JPEG (WebP support in imagescript can be tricky in some environments, JPEG is safe fallback, 
-        // but let's try to stick to standard efficient format. ImageScript supports PNG/JPEG best).
-        // Let's us JPEG with 80% quality for optimization.
+        // Encode as JPEG with 80% quality
         const optimizedBuffer = await image.encodeJPEG(80);
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -43,7 +39,7 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         const timestamp = new Date().getTime();
-        const fileExt = "jpg"; // We are converting to JPEG
+        const fileExt = "jpg";
         const fileName = `${timestamp}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { data, error } = await supabase.storage
@@ -64,7 +60,8 @@ serve(async (req) => {
         });
 
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
