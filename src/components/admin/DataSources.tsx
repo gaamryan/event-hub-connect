@@ -1,74 +1,19 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Trash2, RefreshCw, CheckCircle2, AlertCircle, Plus } from "lucide-react";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
-
-interface DataSource {
-    id: string;
-    type: "eventbrite" | "meetup";
-    organizer_id: string;
-    last_sync_at: string | null;
-    is_active: boolean;
-    sync_frequency: string;
-}
 
 export function DataSources() {
-    const queryClient = useQueryClient();
     const [isConnecting, setIsConnecting] = useState<string | null>(null);
-
-    const { data: sources, isLoading } = useQuery({
-        queryKey: ["data-sources"],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from("data_sources")
-                .select("*")
-                .order("created_at", { ascending: false });
-            if (error) throw error;
-            return data as DataSource[];
-        },
-    });
-
-    const syncMutation = useMutation({
-        mutationFn: async () => {
-            const { data, error } = await supabase.functions.invoke("sync-events");
-            if (error) throw error;
-            return data;
-        },
-        onSuccess: (data) => {
-            toast.success(`Sync started. Results: ${JSON.stringify(data.results)}`);
-            queryClient.invalidateQueries({ queryKey: ["data-sources"] });
-            queryClient.invalidateQueries({ queryKey: ["events"] });
-        },
-        onError: (error) => {
-            toast.error(`Sync failed: ${error.message}`);
-        }
-    });
-
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            const { error } = await supabase.from("data_sources").delete().eq("id", id);
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            toast.success("Source disconnected");
-            queryClient.invalidateQueries({ queryKey: ["data-sources"] });
-        }
-    });
 
     const handleConnect = async (type: "eventbrite" | "meetup") => {
         setIsConnecting(type);
         try {
-            const redirectUri = window.location.origin + "/admin";
-
             if (type === "eventbrite") {
-                // Placeholder for Oauth Redirect
-                toast.info("OAuth flow requires Eventbrite Client ID configuration. See implementation plan.");
+                toast.info("OAuth flow requires Eventbrite Client ID configuration. Use the Import button to import events via URL for now.");
+            } else {
+                toast.info("Meetup integration coming soon!");
             }
         } catch (error) {
             console.error(error);
@@ -81,15 +26,6 @@ export function DataSources() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold tracking-tight">Data Sources</h2>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => syncMutation.mutate()}
-                    disabled={syncMutation.isPending}
-                >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-                    Sync All Now
-                </Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -101,40 +37,34 @@ export function DataSources() {
                         </div>
                         <h3 className="font-semibold">Connect Source</h3>
                         <div className="flex flex-col gap-2 w-full">
-                            <Button onClick={() => handleConnect('eventbrite')} variant="outline">Connect Eventbrite</Button>
-                            <Button onClick={() => handleConnect('meetup')} variant="outline" disabled>Connect Meetup (Coming Soon)</Button>
+                            <Button 
+                                onClick={() => handleConnect('eventbrite')} 
+                                variant="outline"
+                                disabled={isConnecting === 'eventbrite'}
+                            >
+                                Connect Eventbrite
+                            </Button>
+                            <Button 
+                                onClick={() => handleConnect('meetup')} 
+                                variant="outline" 
+                                disabled
+                            >
+                                Connect Meetup (Coming Soon)
+                            </Button>
                         </div>
                     </div>
                 </Card>
 
-                {/* List Sources */}
-                {isLoading ? (
-                    <div className="col-span-full text-center py-10">Loading sources...</div>
-                ) : sources?.map((source) => (
-                    <Card key={source.id}>
-                        <CardHeader className="pb-3">
-                            <div className="flex justify-between items-start">
-                                <CardTitle className="capitalize flex items-center gap-2">
-                                    {source.type}
-                                    {source.is_active ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <AlertCircle className="h-4 w-4 text-yellow-500" />}
-                                </CardTitle>
-                                <Badge variant="outline">{source.sync_frequency}</Badge>
-                            </div>
-                            <CardDescription className="font-mono text-xs truncate">
-                                ID: {source.organizer_id}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pb-3 text-sm text-muted-foreground">
-                            <p>Last Sync: {source.last_sync_at ? format(new Date(source.last_sync_at), "PP p") : "Never"}</p>
-                        </CardContent>
-                        <CardFooter className="justify-end pt-0">
-                            <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => deleteMutation.mutate(source.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Disconnect
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ))}
+                {/* Info Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Import Events</CardTitle>
+                        <CardDescription>
+                            Use the Import button in the Events tab to import events from Eventbrite URLs. 
+                            Full OAuth integration for automatic syncing coming soon.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
             </div>
         </div>
     );

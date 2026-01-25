@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
@@ -47,15 +46,14 @@ serve(async (req) => {
         };
 
         // Extract OpenGraph data
-        const title = getMeta("og:title") || doc.querySelector("title")?.textContent || "";
-        const description = getMeta("og:description") || getMeta("description") || "";
-        const image_url = getMeta("og:image");
+        let title = getMeta("og:title") || doc.querySelector("title")?.textContent || "";
+        let description = getMeta("og:description") || getMeta("description") || "";
+        let imageUrl = getMeta("og:image");
 
         // Try to extract date
-        // This is heuristic and might need platform-specific adjustments
-        let start_time = new Date().toISOString(); // Default to now if not found
+        let start_time = new Date().toISOString();
 
-        // JSON-LD extraction (common on Eventbrite, Schema.org sites)
+        // JSON-LD extraction
         const scriptTags = doc.querySelectorAll('script[type="application/ld+json"]');
         if (scriptTags) {
             for (const script of scriptTags) {
@@ -63,20 +61,14 @@ serve(async (req) => {
                     const content = script.textContent;
                     if (content) {
                         const json = JSON.parse(content);
-                        // Handle array of schemas or single schema
                         const schema = Array.isArray(json) ? json.find(i => i["@type"] === "Event") : (json["@type"] === "Event" ? json : null);
 
                         if (schema) {
                             if (schema.startDate) start_time = schema.startDate;
-                            // If we found a schema, we can also improve other fields
                             if (schema.name) title = schema.name;
                             if (schema.description) description = schema.description;
                             if (schema.image) {
-                                image_url = Array.isArray(schema.image) ? schema.image[0] : schema.image;
-                            }
-                            if (schema.location && schema.location.name) {
-                                // We could extract venue here, but let's stick to basic event info for now
-                                // or return it as extra data
+                                imageUrl = Array.isArray(schema.image) ? schema.image[0] : schema.image;
                             }
                             break;
                         }
@@ -87,35 +79,35 @@ serve(async (req) => {
             }
         }
 
-        // Construct the event object compatible with our frontend interface
+        // Determine source type
+        let source = "manual";
+        if (url.includes("eventbrite.com")) source = "eventbrite";
+        else if (url.includes("meetup.com")) source = "meetup";
+        else if (url.includes("facebook.com")) source = "facebook";
+        else if (url.includes("ticketspice.com")) source = "ticketspice";
+
         const eventData = {
             title,
             description,
             start_time,
-            image_url,
+            image_url: imageUrl,
             source_url: url,
-            // Default values
             end_time: null,
             ticket_url: url,
             price_min: null,
             price_max: null,
             is_free: false,
             status: "draft",
-            source: "manual", // Will be refined in frontend or here if we detect platform
+            source,
         };
-
-        // Simple platform detection
-        if (url.includes("eventbrite.com")) eventData.source = "eventbrite";
-        else if (url.includes("meetup.com")) eventData.source = "meetup";
-        else if (url.includes("facebook.com")) eventData.source = "facebook";
-        else if (url.includes("ticketspice.com")) eventData.source = "ticketspice";
 
         return new Response(JSON.stringify(eventData), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -23,11 +22,16 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        let accessToken, refreshToken, expiresAt, organizerId;
+        let accessToken: string;
+        let organizerId: string;
 
         if (source === "eventbrite") {
             const clientId = Deno.env.get("EVENTBRITE_CLIENT_ID");
             const clientSecret = Deno.env.get("EVENTBRITE_CLIENT_SECRET");
+
+            if (!clientId || !clientSecret) {
+                throw new Error("Missing Eventbrite OAuth credentials");
+            }
 
             const params = new URLSearchParams();
             params.append("grant_type", "authorization_code");
@@ -46,11 +50,8 @@ serve(async (req) => {
             if (!res.ok) throw new Error(data.error_description || "Failed to fetch Eventbrite token");
 
             accessToken = data.access_token;
-            refreshToken = "not_provided_by_eb_code_flow_usually_indefinite"; // Eventbrite tokens might be long lived
-            // Eventbrite response doesn't always strictly give expires_in for simple keys, check docs. 
-            // Often just access_token.
 
-            // Get User/Organizer Info to store
+            // Get User/Organizer Info
             const userRes = await fetch("https://www.eventbriteapi.com/v3/users/me/", {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
@@ -58,52 +59,21 @@ serve(async (req) => {
             organizerId = userData.id;
 
         } else if (source === "meetup") {
-            // Placeholder for Meetup implementation
-            // Meetup uses standard OAuth2
             throw new Error("Meetup implementation pending API keys");
         } else {
             throw new Error("Unsupported source");
         }
 
-        // Upsert into data_sources
-        // We want to avoid duplicates for the same organizer/user
-        const { error } = await supabase
-            .from("data_sources")
-            .upsert(
-                {
-                    type: source,
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                    organizer_id: organizerId,
-                    is_active: true,
-                    updated_at: new Date().toISOString()
-                },
-                { onConflict: "type, organizer_id" }
-                // Note: You need a unique constraint on type+organizer_id for this upsert to work perfectly
-                // or just insert and let admin manage. 
-                // For now, let's just insert.
-            );
+        // For now, just return success - data_sources table doesn't exist yet
+        // This would be used when OAuth flow is fully implemented
 
-        // Actually, standard insert is safer if we don't have constraints yet.
-        // But let's check if one exists for this type? 
-        // Simplifying to INSERT for MVP. Clean up later.
-
-        const { error: insertError } = await supabase
-            .from("data_sources")
-            .insert({
-                type: source,
-                access_token: accessToken,
-                organizer_id: organizerId,
-            });
-
-        if (insertError) throw insertError;
-
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({ success: true, organizerId }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
