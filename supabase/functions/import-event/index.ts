@@ -125,7 +125,7 @@ serve(async (req) => {
         else if (url.includes("meetup.com")) source = "meetup";
         else if (url.includes("facebook.com") || url.includes("fb.com")) source = "facebook";
         else if (url.includes("ticketspice.com")) source = "ticketspice";
-        else if (url.includes("tixr.com")) source = "manual"; // Tixr uses manual source type since it's not in the enum
+        else if (url.includes("tixr.com")) source = "tixr";
 
         const eventData = {
             title: title.trim(),
