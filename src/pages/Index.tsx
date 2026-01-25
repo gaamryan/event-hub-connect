@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { Search, X, Calendar, Sparkles } from "lucide-react";
+import { startOfWeek, endOfWeek, nextSaturday, nextSunday, isSameDay, startOfDay, endOfDay } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/header";
 import { EventCard } from "@/components/events/EventCard";
@@ -14,10 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+type QuickFilter = "this_week" | "this_weekend" | "free" | null;
+
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>(null);
   
   const { data: events, isLoading: eventsLoading } = useApprovedEvents({
     categoryIds: filters.categoryIds,
@@ -26,7 +30,64 @@ const Index = () => {
   });
   const { data: categories } = useCategories();
 
-  // Count active filters (excluding search)
+  // Quick filter handlers
+  const getThisWeekDates = () => {
+    const now = new Date();
+    const weekStart = startOfDay(now);
+    const weekEnd = endOfWeek(now, { weekStartsOn: 0 }); // Sunday end
+    return { from: weekStart, to: endOfDay(weekEnd) };
+  };
+
+  const getThisWeekendDates = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    
+    let saturday: Date;
+    let sunday: Date;
+    
+    // If today is Saturday (6) or Sunday (0), use this weekend
+    if (dayOfWeek === 6) {
+      saturday = startOfDay(now);
+      sunday = endOfDay(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+    } else if (dayOfWeek === 0) {
+      saturday = startOfDay(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+      sunday = endOfDay(now);
+    } else {
+      // Find next Saturday
+      saturday = startOfDay(nextSaturday(now));
+      sunday = endOfDay(nextSunday(now));
+    }
+    
+    return { from: saturday, to: sunday };
+  };
+
+  const handleQuickFilter = (filter: QuickFilter) => {
+    if (activeQuickFilter === filter) {
+      // Toggle off
+      setActiveQuickFilter(null);
+      setFilters(prev => {
+        const newFilters = { ...prev };
+        delete newFilters.dateFrom;
+        delete newFilters.dateTo;
+        if (filter === "free") delete newFilters.isFree;
+        return newFilters;
+      });
+    } else {
+      // Apply filter
+      setActiveQuickFilter(filter);
+      if (filter === "this_week") {
+        const { from, to } = getThisWeekDates();
+        setFilters(prev => ({ ...prev, dateFrom: from, dateTo: to, isFree: undefined }));
+      } else if (filter === "this_weekend") {
+        const { from, to } = getThisWeekendDates();
+        setFilters(prev => ({ ...prev, dateFrom: from, dateTo: to, isFree: undefined }));
+      } else if (filter === "free") {
+        setFilters(prev => ({ ...prev, isFree: true }));
+      }
+    }
+  };
+
+  // Count active filters (excluding search and quick filters)
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.dateFrom || filters.dateTo) count++;
@@ -60,21 +121,25 @@ const Index = () => {
         .join(", ");
       tags.push({ key: "categories", label: categoryNames || "Categories" });
     }
-    if (filters.dateFrom && filters.dateTo) {
-      tags.push({ key: "date", label: `${filters.dateFrom.toLocaleDateString()} - ${filters.dateTo.toLocaleDateString()}` });
-    } else if (filters.dateFrom) {
-      tags.push({ key: "date", label: `From ${filters.dateFrom.toLocaleDateString()}` });
-    } else if (filters.dateTo) {
-      tags.push({ key: "date", label: `Until ${filters.dateTo.toLocaleDateString()}` });
+    // Only show date tag if not using a quick filter
+    if (!activeQuickFilter || (activeQuickFilter !== "this_week" && activeQuickFilter !== "this_weekend")) {
+      if (filters.dateFrom && filters.dateTo) {
+        tags.push({ key: "date", label: `${filters.dateFrom.toLocaleDateString()} - ${filters.dateTo.toLocaleDateString()}` });
+      } else if (filters.dateFrom) {
+        tags.push({ key: "date", label: `From ${filters.dateFrom.toLocaleDateString()}` });
+      } else if (filters.dateTo) {
+        tags.push({ key: "date", label: `Until ${filters.dateTo.toLocaleDateString()}` });
+      }
     }
-    if (filters.isFree) {
+    // Only show free tag if not using quick filter
+    if (filters.isFree && activeQuickFilter !== "free") {
       tags.push({ key: "free", label: "Free events" });
     }
     if (filters.location) {
       tags.push({ key: "location", label: filters.location });
     }
     return tags;
-  }, [filters, searchQuery, categories]);
+  }, [filters, searchQuery, categories, activeQuickFilter]);
 
   const removeFilter = (key: string) => {
     if (key === "search") {
@@ -85,8 +150,14 @@ const Index = () => {
     if (key === "date") {
       delete newFilters.dateFrom;
       delete newFilters.dateTo;
+      if (activeQuickFilter === "this_week" || activeQuickFilter === "this_weekend") {
+        setActiveQuickFilter(null);
+      }
     } else if (key === "free") {
       delete newFilters.isFree;
+      if (activeQuickFilter === "free") {
+        setActiveQuickFilter(null);
+      }
     } else if (key === "location") {
       delete newFilters.location;
     } else if (key === "categories") {
@@ -136,6 +207,36 @@ const Index = () => {
               </div>
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
+          </div>
+
+          {/* Quick Filters */}
+          <div className="flex gap-2 pt-2 overflow-x-auto scrollbar-hide">
+            <Button
+              variant={activeQuickFilter === "this_week" ? "default" : "outline"}
+              size="sm"
+              className="rounded-full whitespace-nowrap gap-1.5 flex-shrink-0"
+              onClick={() => handleQuickFilter("this_week")}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              This Week
+            </Button>
+            <Button
+              variant={activeQuickFilter === "this_weekend" ? "default" : "outline"}
+              size="sm"
+              className="rounded-full whitespace-nowrap gap-1.5 flex-shrink-0"
+              onClick={() => handleQuickFilter("this_weekend")}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              This Weekend
+            </Button>
+            <Button
+              variant={activeQuickFilter === "free" ? "default" : "outline"}
+              size="sm"
+              className="rounded-full whitespace-nowrap flex-shrink-0"
+              onClick={() => handleQuickFilter("free")}
+            >
+              🎉 Free
+            </Button>
           </div>
         </div>
 
