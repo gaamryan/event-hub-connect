@@ -10,6 +10,7 @@ const corsHeaders = {
 const BLOCKED_PLATFORMS = [
     { domain: "facebook.com", name: "Facebook" },
     { domain: "fb.com", name: "Facebook" },
+    { domain: "tixr.com", name: "Tixr" },
 ];
 
 serve(async (req) => {
