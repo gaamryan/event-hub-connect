@@ -1,29 +1,25 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/header";
 import { EventCard } from "@/components/events/EventCard";
 import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
-import { CategoryFilter } from "@/components/events/CategoryFilter";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 import { useApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const Index = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
   
   const { data: events, isLoading: eventsLoading } = useApprovedEvents({
-    categoryId: selectedCategory,
+    categoryIds: filters.categoryIds,
     filters,
     sortBy,
   });
@@ -36,8 +32,10 @@ const Index = () => {
     if (filters.isFree) count++;
     if (filters.priceMin || filters.priceMax) count++;
     if (filters.location) count++;
+    if (filters.categoryIds && filters.categoryIds.length > 0) count++;
+    if (searchQuery) count++;
     return count;
-  }, [filters]);
+  }, [filters, searchQuery]);
 
   // Client-side search filtering
   const filteredEvents = useMemo(() => {
@@ -52,6 +50,16 @@ const Index = () => {
   // Get active filter tags for display
   const activeFilterTags = useMemo(() => {
     const tags: { key: string; label: string }[] = [];
+    if (searchQuery) {
+      tags.push({ key: "search", label: `"${searchQuery}"` });
+    }
+    if (filters.categoryIds && filters.categoryIds.length > 0) {
+      const categoryNames = filters.categoryIds
+        .map(id => categories?.find(c => c.id === id)?.name)
+        .filter(Boolean)
+        .join(", ");
+      tags.push({ key: "categories", label: categoryNames || "Categories" });
+    }
     if (filters.dateFrom && filters.dateTo) {
       tags.push({ key: "date", label: `${filters.dateFrom.toLocaleDateString()} - ${filters.dateTo.toLocaleDateString()}` });
     } else if (filters.dateFrom) {
@@ -66,9 +74,13 @@ const Index = () => {
       tags.push({ key: "location", label: filters.location });
     }
     return tags;
-  }, [filters]);
+  }, [filters, searchQuery, categories]);
 
   const removeFilter = (key: string) => {
+    if (key === "search") {
+      setSearchQuery("");
+      return;
+    }
     const newFilters = { ...filters };
     if (key === "date") {
       delete newFilters.dateFrom;
@@ -77,6 +89,8 @@ const Index = () => {
       delete newFilters.isFree;
     } else if (key === "location") {
       delete newFilters.location;
+    } else if (key === "categories") {
+      delete newFilters.categoryIds;
     }
     setFilters(newFilters);
   };
@@ -86,80 +100,59 @@ const Index = () => {
       <PageHeader 
         title="ILoveGAAM" 
         subtitle="Discover events near you"
-      >
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center touch-feedback"
-        >
-          <Search className="h-5 w-5 text-muted-foreground" />
-        </button>
-      </PageHeader>
+      />
 
-      {/* Search Bar */}
-      <AnimatePresence>
-        {showSearch && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="px-4 pb-3 bg-background border-b border-border"
-          >
-            <Input
-              placeholder="Search events..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full"
-              autoFocus
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Featured Events Section */}
-      <FeaturedEvents />
-
-      {/* Category Filter */}
+      {/* Search & Filter Bar */}
       <div className="sticky top-[73px] bg-background/95 backdrop-blur-md z-30 border-b border-border">
-        <CategoryFilter
-          categories={categories || []}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          isLoading={categoriesLoading}
-        />
-        
-        {/* Filter & Sort Row */}
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
-          <FilterDrawer
-            filters={filters}
-            onFiltersChange={setFilters}
-            activeFilterCount={activeFilterCount}
-          />
-          <SortSelect value={sortBy} onChange={setSortBy} />
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <FilterDrawer
+                filters={filters}
+                onFiltersChange={setFilters}
+                activeFilterCount={activeFilterCount}
+                categories={categories || []}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+              />
+            </div>
+            <SortSelect value={sortBy} onChange={setSortBy} />
+          </div>
         </div>
 
         {/* Active Filter Tags */}
-        {activeFilterTags.length > 0 && (
-          <div className="flex gap-2 px-4 pb-3 flex-wrap">
-            {activeFilterTags.map((tag) => (
-              <Badge
-                key={tag.key}
-                variant="secondary"
-                className="gap-1 pr-1"
-              >
-                {tag.label}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 p-0 hover:bg-transparent"
-                  onClick={() => removeFilter(tag.key)}
+        <AnimatePresence>
+          {activeFilterTags.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex gap-2 px-4 pb-3 flex-wrap"
+            >
+              {activeFilterTags.map((tag) => (
+                <Badge
+                  key={tag.key}
+                  variant="secondary"
+                  className="gap-1 pr-1"
                 >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            ))}
-          </div>
-        )}
+                  <span className="truncate max-w-[150px]">{tag.label}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => removeFilter(tag.key)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Featured Events Section */}
+      <FeaturedEvents />
 
       {/* Event List */}
       <div className="p-4 space-y-4">
@@ -200,8 +193,6 @@ const Index = () => {
             <p className="text-muted-foreground text-sm">
               {activeFilterCount > 0
                 ? "Try adjusting your filters to see more events."
-                : selectedCategory
-                ? "No events in this category. Try another!"
                 : "Events will appear here once approved."}
             </p>
             {activeFilterCount > 0 && (
@@ -209,7 +200,10 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => setFilters({})}
+                onClick={() => {
+                  setFilters({});
+                  setSearchQuery("");
+                }}
               >
                 Clear all filters
               </Button>

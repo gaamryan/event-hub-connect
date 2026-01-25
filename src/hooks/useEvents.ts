@@ -39,15 +39,16 @@ export interface Event {
 
 interface UseApprovedEventsOptions {
   categoryId?: string | null;
+  categoryIds?: string[];
   filters?: EventFilters;
   sortBy?: SortOption;
 }
 
 export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
-  const { categoryId, filters, sortBy = "date_asc" } = options;
+  const { categoryId, categoryIds, filters, sortBy = "date_asc" } = options;
 
   return useQuery({
-    queryKey: ["events", "approved", categoryId, filters, sortBy],
+    queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy],
     queryFn: async () => {
       let query = supabase
         .from("events")
@@ -59,9 +60,14 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
         `)
         .eq("status", "approved");
 
-      // Category filter
+      // Category filter (single)
       if (categoryId) {
         query = query.eq("category_id", categoryId);
+      }
+
+      // Category filter (multiple)
+      if (categoryIds && categoryIds.length > 0) {
+        query = query.in("category_id", categoryIds);
       }
 
       // Date range filter
