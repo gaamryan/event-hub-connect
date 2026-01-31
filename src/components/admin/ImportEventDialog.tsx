@@ -22,6 +22,7 @@ interface ScrapedEvent {
   status: "draft" | "pending" | "approved" | "rejected";
   source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
   venue?: { name: string } | null;
+  _warning?: string;
 }
 
 interface ImportEventDialogProps {
@@ -54,6 +55,12 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
         });
 
         if (error) throw error;
+
+        // Handle potential warning from backend
+        if (data?._warning) {
+          toast.warning(data._warning);
+        }
+
         setPreviewData(data);
       } else {
         // Text Parsing Logic
@@ -189,6 +196,14 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
           </Tabs>
         ) : (
           <div className="space-y-4 py-4">
+            {/* Warning for platforms that need manual entry */}
+            {previewData._warning && (
+              <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm p-3 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{previewData._warning}</span>
+              </div>
+            )}
+
             {previewData.image_url && (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 <img
@@ -349,5 +364,6 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     status: "draft",
     source: source,
     venue: venueObj,
+    _warning: undefined
   };
 }

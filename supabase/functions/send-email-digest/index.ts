@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -20,25 +19,18 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // 1. Get all users who follow categories
-        // Distinct users from user_followed_categories
+        // Get all users who follow categories
         const { data: userIds, error: userError } = await supabase
             .from("user_followed_categories")
-            .select("user_id"); // Ideally distinct or group by
+            .select("user_id");
 
         if (userError) throw userError;
 
         // De-duplicate
         const uniqueUserIds = [...new Set(userIds.map(u => u.user_id))];
-        const results = [];
+        const results: Array<{ email: string; status: string; error?: unknown }> = [];
 
         for (const uid of uniqueUserIds) {
-            // Get User Email (Need to join with auth.users or profiles if email stored there)
-            // Since we can't easily query auth.users directly via standard client without admin privilege,
-            // using service key allows us to use admin.listUsers or just assume we have email in profiles?
-            // Let's assume we can fetch email if we had it in profiles, or use admin auth api.
-            // For MVP, using Supabase Admin Auth API
-
             const { data: { user }, error: authError } = await supabase.auth.admin.getUserById(uid);
             if (authError || !user?.email) continue;
 
@@ -90,7 +82,7 @@ serve(async (req) => {
                     "Authorization": `Bearer ${resendApiKey}`
                 },
                 body: JSON.stringify({
-                    from: "EventHub <noreply@eventhub.local>", // Needs a verified domain
+                    from: "EventHub <noreply@eventhub.local>",
                     to: [user.email],
                     subject: "Upcoming Events This Week",
                     html: html
@@ -111,7 +103,8 @@ serve(async (req) => {
         });
 
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

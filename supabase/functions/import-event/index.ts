@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
@@ -34,7 +33,7 @@ serve(async (req) => {
             throw new Error("URL is required");
         }
 
-        console.log(`Fetching URL: ${url}`);
+        console.log(`Processing URL: ${url}`);
 
         let eventData: Partial<EventData> = {
             source_url: url,

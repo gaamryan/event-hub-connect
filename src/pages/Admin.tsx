@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
 import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
+import { CreateEventDialog } from "@/components/admin/CreateEventDialog";
 import { DataSources } from "@/components/admin/DataSources";
 import { ImageUpload } from "@/components/admin/ImageUpload";
 import { NotificationsBtn } from "@/components/ui/NotificationsBtn";
@@ -52,6 +53,7 @@ const Admin = () => {
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Auth form state
   const [email, setEmail] = useState("");
@@ -214,9 +216,12 @@ const Admin = () => {
         <Button variant="outline" size="sm" onClick={signOut}>
           Sign Out
         </Button>
-        <Button size="sm" onClick={() => setIsImportOpen(true)}>
+        <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+          Import
+        </Button>
+        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Import Event
+          Create
         </Button>
         <NotificationsBtn />
       </PageHeader>
@@ -473,6 +478,8 @@ const Admin = () => {
       </Sheet>
       {/* Import Dialog */}
       <ImportEventDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+      {/* Create Dialog */}
+      <CreateEventDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </AppLayout>
   );
 };
