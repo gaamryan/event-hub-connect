@@ -7,6 +7,21 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface EventData {
+    title: string;
+    description: string;
+    start_time: string;
+    end_time: string | null;
+    image_url: string | null;
+    ticket_url: string | null;
+    price_min: number | null;
+    price_max: number | null;
+    is_free: boolean | null;
+    status: "draft" | "pending" | "approved" | "rejected";
+    source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
+    source_url: string;
+}
+
 serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -21,103 +36,169 @@ serve(async (req) => {
 
         console.log(`Fetching URL: ${url}`);
 
-        // Fetch the HTML content
-        const response = await fetch(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch URL: ${response.statusText}`);
-        }
-
-        const html = await response.text();
-        const doc = new DOMParser().parseFromString(html, "text/html");
-
-        if (!doc) {
-            throw new Error("Failed to parse HTML");
-        }
-
-        // Helper to get meta tag content
-        const getMeta = (property: string) => {
-            const tag = doc.querySelector(`meta[property="${property}"]`) ||
-                doc.querySelector(`meta[name="${property}"]`);
-            return tag?.getAttribute("content") || null;
-        };
-
-        // Extract OpenGraph data
-        const title = getMeta("og:title") || doc.querySelector("title")?.textContent || "";
-        const description = getMeta("og:description") || getMeta("description") || "";
-        const image_url = getMeta("og:image");
-
-        // Try to extract date
-        // This is heuristic and might need platform-specific adjustments
-        let start_time = new Date().toISOString(); // Default to now if not found
-
-        // JSON-LD extraction (common on Eventbrite, Schema.org sites)
-        const scriptTags = doc.querySelectorAll('script[type="application/ld+json"]');
-        if (scriptTags) {
-            for (const script of scriptTags) {
-                try {
-                    const content = script.textContent;
-                    if (content) {
-                        const json = JSON.parse(content);
-                        // Handle array of schemas or single schema
-                        const schema = Array.isArray(json) ? json.find(i => i["@type"] === "Event") : (json["@type"] === "Event" ? json : null);
-
-                        if (schema) {
-                            if (schema.startDate) start_time = schema.startDate;
-                            // If we found a schema, we can also improve other fields
-                            if (schema.name) title = schema.name;
-                            if (schema.description) description = schema.description;
-                            if (schema.image) {
-                                image_url = Array.isArray(schema.image) ? schema.image[0] : schema.image;
-                            }
-                            if (schema.location && schema.location.name) {
-                                // We could extract venue here, but let's stick to basic event info for now
-                                // or return it as extra data
-                            }
-                            break;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error parsing JSON-LD", e);
-                }
-            }
-        }
-
-        // Construct the event object compatible with our frontend interface
-        const eventData = {
-            title,
-            description,
-            start_time,
-            image_url,
+        let eventData: Partial<EventData> = {
             source_url: url,
-            // Default values
-            end_time: null,
-            ticket_url: url,
+            status: "draft",
+            source: "manual",
+            start_time: new Date().toISOString(),
+            is_free: false,
             price_min: null,
             price_max: null,
-            is_free: false,
-            status: "draft",
-            source: "manual", // Will be refined in frontend or here if we detect platform
+            end_time: null,
         };
 
-        // Simple platform detection
+        // Determine source
         if (url.includes("eventbrite.com")) eventData.source = "eventbrite";
         else if (url.includes("meetup.com")) eventData.source = "meetup";
         else if (url.includes("facebook.com")) eventData.source = "facebook";
         else if (url.includes("ticketspice.com")) eventData.source = "ticketspice";
 
+        let parsingSuccessful = false;
+
+        // Strategy 1: Direct Fetch (Best for JSON-LD and Meta Tags)
+        // Facebook almost always blocks this, so skip for FB to save time/errors
+        if (eventData.source !== "facebook") {
+            try {
+                console.log("Attempting direct fetch...");
+                const response = await fetch(url, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+                    },
+                });
+
+                if (response.ok) {
+                    const html = await response.text();
+                    // Basic check for blocking
+                    if (!html.includes("Security Check") && !html.includes("challenge")) {
+                        const parsedData = parseHtml(html, url);
+                        eventData = { ...eventData, ...parsedData };
+                        // If we got at least a title, consider it successful
+                        if (eventData.title) {
+                            parsingSuccessful = true;
+                            console.log("Direct fetch successful");
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Direct fetch failed, falling back to proxy:", e);
+            }
+        }
+
+        // Strategy 2: Jina AI Proxy (Fallback for blocked sites & default for Facebook)
+        if (!parsingSuccessful) {
+            console.log("Attempting Jina AI proxy...");
+            const jinaUrl = `https://r.jina.ai/${url}`;
+            const response = await fetch(jinaUrl, {
+                headers: {
+                    "Accept": "application/json", // Request JSON to get structured fields + markdown
+                    "X-With-Generated-Alt": "true"
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Data structure: { code: 200, status: 200, data: { title: "...", description: "...", url: "...", content: "..." } }
+                // Note: Structure might vary, sometimes it matches the return format directly. 
+                // Let's assume standard response or check fields.
+
+                const jinaData = data.data || data; // Handle potential wrapper
+
+                if (jinaData && jinaData.title) {
+                    eventData.title = jinaData.title;
+                    if (jinaData.description) eventData.description = jinaData.description;
+
+                    // Markdown content for regex extraction
+                    const content = jinaData.content || "";
+
+                    // Image: Look for !()[url]
+                    const imageMatch = content.match(/!\[.*?\]\((.*?)\)/);
+                    if (imageMatch && imageMatch[1]) eventData.image_url = imageMatch[1];
+
+                    // Date: Very heuristic. Look for common patterns? 
+                    // For now, leave start_time as now() or null if not found, 
+                    // users will likely have to edit imported events anyway.
+                    // If we have a description, we use it. 
+
+                    // Facebook specific cleanup
+                    if (eventData.source === "facebook" && eventData.title) {
+                        // Clean title "Log into Facebook" etc.
+                        if (eventData.title.includes("Log into Facebook") || eventData.title.includes("Facebook")) {
+                            // Try to regex title from content if possible
+                        }
+                    }
+
+                    parsingSuccessful = true;
+                    console.log("Jina fetch successful");
+                }
+            } else {
+                console.error("Jina fetch failed:", await response.text());
+            }
+        }
+
+        if (!eventData.title) {
+            // Fallback title if everything failed
+            // Don't error, return what we have so user can fill it in
+            eventData.title = "New Event (Import Failed)";
+            eventData.description = "Could not verify details from URL. Please enter manually.";
+        }
+
         return new Response(JSON.stringify(eventData), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: any) {
+        return new Response(JSON.stringify({ error: error.message || "Unknown error" }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }
 });
+
+// Helper to parse HTML content (JSON-LD & OpenGraph)
+function parseHtml(html: string, url: string) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    if (!doc) return {};
+
+    const getMeta = (property: string) => {
+        const tag = doc.querySelector(`meta[property="${property}"]`) ||
+            doc.querySelector(`meta[name="${property}"]`);
+        return tag?.getAttribute("content") || null;
+    };
+
+    let title = getMeta("og:title") || doc.querySelector("title")?.textContent || "";
+    let description = getMeta("og:description") || getMeta("description") || "";
+    let image_url = getMeta("og:image");
+    let start_time = new Date().toISOString();
+
+    // Cleaning
+    if (title) title = title.replace(" | Eventbrite", "").replace(" | Meetup", "");
+
+    // JSON-LD extraction
+    const scriptTags = doc.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of scriptTags) {
+        try {
+            const content = script.textContent;
+            if (content) {
+                const json = JSON.parse(content);
+                const items = Array.isArray(json) ? json : [json];
+                const eventSchema = items.find(i => i["@type"] === "Event" || i["@type"]?.includes("Event"));
+
+                if (eventSchema) {
+                    if (eventSchema.name) title = eventSchema.name;
+                    if (eventSchema.description) description = eventSchema.description;
+                    if (eventSchema.startDate) start_time = eventSchema.startDate;
+                    if (eventSchema.image) {
+                        const img = eventSchema.image;
+                        image_url = Array.isArray(img) ? img[0] : (typeof img === 'string' ? img : img.url);
+                    }
+                    break;
+                }
+            }
+        } catch (e) {
+            // ignore parse errors
+        }
+    }
+
+    return { title, description, image_url, start_time };
+}

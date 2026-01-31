@@ -7,7 +7,9 @@ import Index from "./pages/Index";
 import Categories from "./pages/Categories";
 import Saved from "./pages/Saved";
 import Admin from "./pages/Admin";
+import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
+import { Analytics } from "./components/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -17,11 +19,13 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <Analytics />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/saved" element={<Saved />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/events/:id" element={<EventDetail />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

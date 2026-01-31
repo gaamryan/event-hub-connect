@@ -371,25 +371,18 @@ const Admin = () => {
 
       {/* Quick Edit Drawer */}
       <Sheet open={!!editingEvent} onOpenChange={() => setEditingEvent(null)}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-          <SheetHeader>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl flex flex-col p-0 gap-0">
+          <SheetHeader className="p-6 pb-2">
             <SheetTitle>Edit Event</SheetTitle>
           </SheetHeader>
           {editingEvent && (
-            <div className="mt-6 space-y-4 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
               {editingEvent.image_url && (
                 <div className="relative">
                   <ImageUpload
                     value={editingEvent.image_url}
                     onChange={(url) => {
-                      updateStatus.mutate({ eventIds: [editingEvent.id], status: editingEvent.status }); // Just to trigger a refresh logic if needed, ideally separate update field
-                      // Actually we need to update the event with the new URL
-                      // We don't have a specific updateEvent mutation exposed in hooks yet for fields other than status
-                      // For MVP, we might need to add one or just update local state and rely on a specific save button?
-                      // The current UI seems to save on status change or has no explicit save?
-                      // Wait, the original code didn't have a save button for title/desc editing. 
-                      // It seems it was just a view or "Quick Edit" for Status.
-                      // Let's add a "Save Changes" button or auto-save?
+                      // Update local state to show change immediately
                       setEditingEvent({ ...editingEvent, image_url: url });
                     }}
                   />
@@ -443,14 +436,10 @@ const Admin = () => {
                   </p>
                 </div>
               )}
-              <div className="pt-4 flex gap-2">
+              <div className="pt-4 flex gap-2 pb-6">
                 <Button
                   className="flex-1"
                   onClick={async () => {
-                    // We need a way to save the Image URL change.
-                    // The hooks don't have an 'updateEvent' mutation yet.
-                    // Let's assume we'll add one or just use supabase client directly here for MVP speed.
-                    // A bit hacky but works for keeping context.
                     const { error } = await supabase.from('events').update({
                       image_url: editingEvent.image_url
                     }).eq('id', editingEvent.id);
