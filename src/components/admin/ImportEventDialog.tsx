@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,19 +8,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Calendar, MapPin, Link as LinkIcon, AlertCircle, FileText, Globe } from "lucide-react";
+import { Loader2, Calendar, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
 
 interface ScrapedEvent {
+  id?: string; // Temp ID for React keys
   title: string;
   description: string;
   start_time: string;
+  end_time?: string | null;
   image_url: string | null;
   source_url: string;
   status: "draft" | "pending" | "approved" | "rejected";
   source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
   venue?: { name: string } | null;
+  organizer?: string;
+  location?: string;
+  address?: string;
+  google_maps_link?: string;
+  is_series?: boolean;
+  dates?: string[];
+  import_mode?: "merge" | "split";
+  ticket_url?: string;
+  price_min?: number | null;
+  price_max?: number | null;
   _warning?: string;
 }
 
@@ -32,100 +44,285 @@ interface ImportEventDialogProps {
 
 export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps) {
   const [activeTab, setActiveTab] = useState("url");
-  const [url, setUrl] = useState("");
+  const [urlInput, setUrlInput] = useState("");
   const [textInput, setTextInput] = useState("");
   const [manualSource, setManualSource] = useState<ScrapedEvent["source"]>("manual");
 
   const [isLoading, setIsLoading] = useState(false);
-  const [previewData, setPreviewData] = useState<ScrapedEvent | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [previewEvents, setPreviewEvents] = useState<ScrapedEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const handlePreview = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
-    setPreviewData(null);
+    setPreviewEvents([]);
     setIsLoading(true);
 
     try {
       if (activeTab === "url") {
-        if (!url) return;
-        const { data, error } = await supabase.functions.invoke('import-event', {
-          body: { url },
-        });
+        if (!urlInput.trim()) return;
 
-        if (error) throw error;
+        const urls = urlInput
+          .split("\n")
+          .map((u) => u.trim())
+          .filter((u) => u.length > 0);
 
-        // Handle potential warning from backend
-        if (data?._warning) {
-          toast.warning(data._warning);
+        if (urls.length === 0) return;
+
+        const results: ScrapedEvent[] = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < urls.length; i++) {
+          const url = urls[i];
+          setLoadingMessage(`Scanning ${i + 1}/${urls.length}: ${new URL(url).hostname}...`);
+
+          try {
+            const { data, error } = await supabase.functions.invoke('import-event', {
+              body: { url },
+            });
+
+            if (error) throw error;
+
+            if (data) {
+              // Assign a temp ID for UI handling
+              results.push({
+                ...data,
+                id: Math.random().toString(36).substring(2, 9),
+                // Default series events to "merge"
+                import_mode: data.is_series ? "merge" : undefined,
+                // Ensure default status is approved if not set by backend
+                status: "approved"
+              });
+              successCount++;
+            }
+          } catch (err) {
+            console.error(`Failed to fetch ${url}`, err);
+            failCount++;
+          }
         }
 
-        setPreviewData(data);
+        setPreviewEvents(results);
+
+        if (failCount > 0) {
+          toast.warning(`Finished scanning. ${successCount} found, ${failCount} failed.`);
+        } else {
+          toast.success(`Found ${successCount} events!`);
+        }
+
       } else {
         // Text Parsing Logic
         if (!textInput) return;
         const parsed = parseEventText(textInput, manualSource);
-        setPreviewData(parsed);
+        parsed.id = Math.random().toString(36).substring(2, 9);
+        parsed.status = "approved"; // Default to approved
+        setPreviewEvents([parsed]);
       }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to process event data.");
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
-  const handleImport = async () => {
-    if (!previewData) return;
-    setIsLoading(true);
+  const handleRemoveEvent = (id: string) => {
+    setPreviewEvents((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const handleImportModeToggle = (id: string, mode: "merge" | "split") => {
+    setPreviewEvents((prev) => prev.map(e => e.id === id ? { ...e, import_mode: mode } : e));
+  };
+
+  const handleCopyEvent = (event: ScrapedEvent) => {
+    const details = getFormattedEventString(event);
+    navigator.clipboard.writeText(details);
+    toast.success("Event details copied to clipboard!");
+  };
+
+  const handleQuickCopy = () => {
+    if (!textInput) {
+      // Copy AI Prompt
+      const template = `please organize and state the following:
+Event Name
+Event Start Date
+Event Start Time
+Event End Date
+Event End Time
+Location (street address, city, state, zipcode)
+Address
+Google Maps Link to Address
+Host
+Ticket Link
+Description
+Cost
+full url path to the cover image`;
+      navigator.clipboard.writeText(template);
+      toast.info("AI Prompt copied to clipboard!");
+      return;
+    }
 
     try {
-      // Create the event in Supabase
-      const { error } = await supabase.from("events").insert({
-        title: previewData.title,
-        description: previewData.description,
-        start_time: previewData.start_time,
-        image_url: previewData.image_url,
-        source_url: previewData.source_url,
-        source: previewData.source,
-        status: "draft", // Import as draft by default
-      });
+      const parsed = parseEventText(textInput, manualSource);
+      const details = getFormattedEventString(parsed);
+      navigator.clipboard.writeText(details);
+      toast.success("Parsed details copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to parse and copy.");
+    }
+  };
+
+  const getFormattedEventString = (event: ScrapedEvent) => {
+    const formatDate = (dateStr?: string | null) => {
+      if (!dateStr || isNaN(Date.parse(dateStr))) return "TBD";
+      return format(new Date(dateStr), "MM/dd/yyyy");
+    };
+    const formatTime = (dateStr?: string | null) => {
+      if (!dateStr || isNaN(Date.parse(dateStr))) return "TBD";
+      return format(new Date(dateStr), "h:mm a");
+    };
+
+    let cost = "TBD";
+    if (event.price_min !== undefined && event.price_max !== undefined) {
+      if (event.price_min === 0 && event.price_max === 0) cost = "Free";
+      else if (event.price_min === event.price_max) cost = `$${event.price_min}`;
+      else cost = `$${event.price_min} - $${event.price_max}`;
+    }
+
+    return `Event Name: ${event.title}
+Event Start Date: ${formatDate(event.start_time)}
+Event Start Time: ${formatTime(event.start_time)}
+Event End Date: ${event.end_time ? formatDate(event.end_time) : formatDate(event.start_time)}
+Event End Time: ${event.end_time ? formatTime(event.end_time) : "TBD"}
+Location: ${event.venue?.name || event.location || "TBD"}, ${event.address || ""}
+Address: ${event.address || "TBD"}
+Google Maps Link to Address: ${event.google_maps_link || "TBD"}
+Host: ${event.organizer || "TBD"}
+Ticket Link: ${event.source_url || ""}
+Description: ${event.description || ""}
+Cost: ${cost}
+full url to cover image: ${event.image_url || "TBD"}`;
+  };
+
+  const handleImport = async () => {
+    if (previewEvents.length === 0) return;
+    setIsLoading(true);
+    setLoadingMessage("Importing events...");
+
+    let totalImported = 0;
+
+    try {
+      const eventsToInsert: any[] = [];
+
+      for (const event of previewEvents) {
+        // Clean up UI-only properties
+        // 'location' must be removed (not in events table). 'ticket_url', 'price_min', 'price_max' are kept.
+        const { id, _warning, is_series, dates, import_mode, organizer, google_maps_link, address, location, ...baseEvent } = event;
+
+        // 1. Upsert Venue first if exists
+        let venue_id = null;
+        if (baseEvent.venue || location) {
+          const venueName = baseEvent.venue?.name || location;
+          if (venueName) {
+            // Try to find existing venue by name approx? or just insert new ones for now to be safe
+            // Better strategy: Simple check if exists by name
+            const { data: existingVenue } = await supabase.from('venues').select('id').eq('name', venueName).single();
+
+            if (existingVenue) {
+              venue_id = existingVenue.id;
+            } else {
+              // Create new venue
+              const { data: newVenue, error: venueError } = await supabase.from('venues').insert({
+                name: venueName,
+                address_line_1: address || null,
+                map_url: google_maps_link || null
+              }).select().single();
+
+              if (!venueError && newVenue) {
+                venue_id = newVenue.id;
+              } else {
+                console.error("Failed to create venue", venueError);
+              }
+            }
+          }
+        }
+
+        // Let's enhance the description with Host info if needed, or if we have columns
+        // For now, let's append rich info to description as a fallback to ensure it's visible
+        let richDescription = baseEvent.description || "";
+
+        if (organizer) richDescription = `Hosted by: ${organizer}\n\n${richDescription}`;
+        // Map link is now in venue, but keep in description if specific event link differs? No, clean is better.
+
+        // Prepare base object
+        const commonData = {
+          ...baseEvent,
+          description: richDescription,
+          status: "approved", // FORCE APPROVED
+          venue_id: venue_id,
+          // Remove the 'venue' object property which causes the error
+          venue: undefined
+        };
+
+        if (is_series && import_mode === "split" && dates && dates.length > 0) {
+          // SPLIT MODE: Create one event per date
+          for (const date of dates) {
+            eventsToInsert.push({
+              ...commonData,
+              start_time: date,
+              end_time: null
+            });
+          }
+        } else {
+          // MERGE MODE (Default) or Normal Event
+          if (is_series && import_mode === "merge") {
+            commonData.description += "\n\n(This is a recurring event series.)";
+          }
+          eventsToInsert.push(commonData);
+        }
+      }
+
+      const { error } = await supabase.from("events").insert(eventsToInsert);
 
       if (error) throw error;
 
-      toast.success("Event imported successfully as draft");
+      toast.success(`${eventsToInsert.length} events imported successfully as APPROVED`);
       queryClient.invalidateQueries({ queryKey: ["events"] });
       onOpenChange(false);
+
       // Reset state
-      setUrl("");
+      setUrlInput("");
       setTextInput("");
-      setPreviewData(null);
+      setPreviewEvents([]);
       setManualSource("manual");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save event");
+      toast.error("Failed to save events");
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-xl overflow-y-auto max-h-[90vh]">
+      <DialogContent className="max-w-md sm:max-w-2xl overflow-y-auto max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Import Event</DialogTitle>
+          <DialogTitle>Import Events</DialogTitle>
           <DialogDescription>
-            Import event details from a URL or by pasting text.
+            Import event details from URLs (one per line) or by pasting text.
           </DialogDescription>
         </DialogHeader>
 
-        {!previewData ? (
+        {previewEvents.length === 0 ? (
           <Tabs defaultValue="url" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="url">
                 <Globe className="h-4 w-4 mr-2" />
-                From URL
+                From URLs
               </TabsTrigger>
               <TabsTrigger value="text">
                 <FileText className="h-4 w-4 mr-2" />
@@ -136,23 +333,24 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
             <TabsContent value="url">
               <form onSubmit={handlePreview} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="url">Event URL</Label>
-                  <Input
+                  <Label htmlFor="url">Event URLs (One per line)</Label>
+                  <Textarea
                     id="url"
-                    placeholder="https://..."
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://eventbrite.com/e/...\nhttps://meetup.com/..."
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
                     disabled={isLoading}
+                    className="min-h-[150px] font-mono text-xs leading-relaxed"
                   />
                 </div>
                 {error && <ErrorMessage message={error} />}
-                <Button type="submit" className="w-full" disabled={isLoading || !url}>
+                <Button type="submit" className="w-full" disabled={isLoading || !urlInput.trim()}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Fetching details...
+                      {loadingMessage || "Processing..."}
                     </>
-                  ) : "Preview"}
+                  ) : "Scan URLs"}
                 </Button>
               </form>
             </TabsContent>
@@ -188,82 +386,170 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
                   </p>
                 </div>
                 {error && <ErrorMessage message={error} />}
-                <Button onClick={() => handlePreview()} className="w-full" disabled={isLoading || !textInput}>
-                  {isLoading ? "Parsing..." : "Preview"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => handlePreview()} className="flex-1" disabled={isLoading || !textInput}>
+                    {isLoading ? "Parsing..." : "Preview"}
+                  </Button>
+                  <Button onClick={handleQuickCopy} variant="outline" className="flex-none" disabled={isLoading} title={textInput ? "Copy Formatted Text" : "Copy Template"}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="space-y-4 py-4">
-            {/* Warning for platforms that need manual entry */}
-            {previewData._warning && (
-              <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm p-3 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>{previewData._warning}</span>
-              </div>
-            )}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between text-sm text-muted-foreground pb-2 border-b">
+              <span>Found {previewEvents.length} event{previewEvents.length !== 1 && 's'}</span>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewEvents([])} className="h-auto p-0 hover:bg-transparent hover:text-foreground">
+                <X className="w-3 h-3 mr-1" /> Clear All
+              </Button>
+            </div>
 
-            {previewData.image_url && (
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                <img
-                  src={previewData.image_url}
-                  alt={previewData.title}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-            )}
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              {previewEvents.map((event, index) => (
+                <div key={event.id || index} className="relative group border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                  <div className="flex gap-3">
+                    {/* Thumbnail */}
+                    <div className="w-24 h-24 shrink-0 bg-muted rounded overflow-hidden">
+                      {event.image_url ? (
+                        <img src={event.image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <AlertCircle className="w-6 h-6 opacity-20" />
+                        </div>
+                      )}
+                    </div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">{previewData.title}</h3>
-                <span className="text-xs bg-secondary px-2 py-1 rounded capitalize">{previewData.source}</span>
-              </div>
-              <div className="flex flex-col gap-1 mt-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    {previewData.start_time && !isNaN(Date.parse(previewData.start_time))
-                      ? format(new Date(previewData.start_time), "PPP p")
-                      : "Invalid Date"}
-                  </span>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-sm truncate max-w-[200px]" title={event.title}>{event.title}</h4>
+                          {event.is_series && (
+                            <span className="flex items-center gap-1 text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full font-medium">
+                              <Layers className="w-3 h-3" />
+                              Series
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 absolute top-2 right-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-primary"
+                            onClick={() => handleCopyEvent(event)}
+                            title="Copy Details"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => event.id && handleRemoveEvent(event.id)}
+                            title="Remove"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                        {/* Host */}
+                        {event.organizer && (
+                          <div className="flex items-center gap-1.5 text-foreground/80">
+                            <User className="w-3 h-3" />
+                            <span className="truncate">{event.organizer}</span>
+                          </div>
+                        )}
+
+                        {/* Date/Time */}
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3 h-3" />
+                          <span>
+                            {event.start_time && !isNaN(Date.parse(event.start_time))
+                              ? format(new Date(event.start_time), "MMM d, h:mm a")
+                              : "No Date"}
+                            {event.end_time && !isNaN(Date.parse(event.end_time)) && (
+                              ` - ${format(new Date(event.end_time), "h:mm a")}`
+                            )}
+                          </span>
+                        </div>
+
+                        {/* Location */}
+                        {(event.location || event.venue?.name) && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate max-w-[200px]">{event.location || event.venue?.name}</span>
+                            {event.google_maps_link && (
+                              <a
+                                href={event.google_maps_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-500 hover:underline ml-1"
+                                title="Open in Google Maps"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                (Map)
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="flex items-center gap-1 bg-secondary px-1.5 py-0.5 rounded capitalize">
+                            {event.source}
+                          </span>
+                          <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded capitalize text-[10px]">
+                            Approved
+                          </span>
+                        </div>
+                      </div>
+
+                      {event.is_series && (
+                        <div className="mt-2 p-2 bg-secondary/50 rounded-md flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {event.import_mode === "merge"
+                              ? "Import as single event"
+                              : `Import as ${event.dates?.length || 0} separate events`
+                            }
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`mode-${event.id}`} className="text-xs cursor-pointer">Split</Label>
+                            <Switch
+                              id={`mode-${event.id}`}
+                              checked={event.import_mode === "split"}
+                              onCheckedChange={(checked) => handleImportModeToggle(event.id!, checked ? "split" : "merge")}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {event._warning && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {event._warning}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {previewData.venue && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>{previewData.venue.name}</span>
-                  </div>
-                )}
-                {previewData.source_url && (
-                  <div className="flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4" />
-                    <a href={previewData.source_url} target="_blank" rel="noreferrer" className="hover:underline truncate max-w-[300px]">
-                      {previewData.source_url}
-                    </a>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
 
-            <div className="bg-secondary/50 p-3 rounded-md text-sm">
-              <span className="font-medium">Description preview:</span>
-              <p className="text-muted-foreground line-clamp-6 mt-1 whitespace-pre-wrap">
-                {previewData.description || "No description found"}
-              </p>
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setPreviewData(null)} disabled={isLoading}>
+            <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t">
+              <Button variant="outline" onClick={() => setPreviewEvents([])} disabled={isLoading}>
                 Back
               </Button>
               <Button onClick={handleImport} disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Importing...
+                    {loadingMessage}
                   </>
                 ) : (
-                  "Import Event"
+                  `Import Events`
                 )}
               </Button>
             </DialogFooter>
@@ -321,9 +607,6 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     }
 
     if (!matched) {
-      // If it's a "known" key that continues, or strictly description
-      // For simple parsing, allow description to capture bulk text
-      // Or if existing key is description, append to it
       if (currentKey === 'description' || currentKey === 'description_append') {
         descriptionBuffer += line + "\n";
       }
@@ -341,7 +624,6 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     if (!isNaN(parsed)) {
       startDate = new Date(parsed).toISOString();
     } else {
-      // Fallback logic could go here
       console.warn("Could not parse date:", data.start_time);
     }
   }
@@ -361,7 +643,7 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     start_time: startDate,
     image_url: null, // No image parsing from text supported yet
     source_url: finalUrl,
-    status: "draft",
+    status: "approved",
     source: source,
     venue: venueObj,
     _warning: undefined

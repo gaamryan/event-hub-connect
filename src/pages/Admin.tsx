@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
 import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
 import { CreateEventDialog } from "@/components/admin/CreateEventDialog";
@@ -46,6 +48,7 @@ const statusColors: Record<string, string> = {
 const Admin = () => {
   const { user, signIn, signUp, signOut, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>(undefined);
@@ -400,60 +403,177 @@ const Admin = () => {
                   onChange={(url) => setEditingEvent({ ...editingEvent, image_url: url })}
                 />
               )}
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Title</label>
-                <p className="text-lg font-semibold">{editingEvent.title}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Status</label>
-                <div className="flex gap-2 mt-2">
-                  {(["pending", "approved", "rejected"] as const).map((status) => (
-                    <Button
-                      key={status}
-                      variant={editingEvent.status === status ? "default" : "outline"}
-                      size="sm"
-                      className="capitalize"
-                      onClick={() => {
-                        updateStatus.mutate({ eventIds: [editingEvent.id], status });
-                        setEditingEvent({ ...editingEvent, status });
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Title</label>
+                  <Input
+                    value={editingEvent.title}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                    className="font-semibold text-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="flex gap-2">
+                    {(["pending", "approved", "rejected"] as const).map((status) => (
+                      <Button
+                        key={status}
+                        variant={editingEvent.status === status ? "default" : "outline"}
+                        size="sm"
+                        className="capitalize"
+                        onClick={() => {
+                          updateStatus.mutate({ eventIds: [editingEvent.id], status });
+                          setEditingEvent({ ...editingEvent, status });
+                        }}
+                      >
+                        {status}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Start Time</label>
+                    <Input
+                      type="datetime-local"
+                      value={editingEvent.start_time ? new Date(editingEvent.start_time).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => {
+                        const date = new Date(e.target.value);
+                        if (!isNaN(date.getTime())) {
+                          setEditingEvent({ ...editingEvent, start_time: date.toISOString() });
+                        }
                       }}
-                    >
-                      {status}
-                    </Button>
-                  ))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">End Time</label>
+                    <Input
+                      type="datetime-local"
+                      value={editingEvent.end_time ? new Date(editingEvent.end_time).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => {
+                        const date = new Date(e.target.value);
+                        if (!isNaN(date.getTime())) {
+                          setEditingEvent({ ...editingEvent, end_time: date.toISOString() });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Date & Time</label>
-                <p>{format(new Date(editingEvent.start_time), "EEEE, MMMM d, yyyy 'at' h:mm a")}</p>
-              </div>
-              {editingEvent.venue && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Venue</label>
-                  <p>{editingEvent.venue.name}</p>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Venue Details</label>
+                  <div className="grid gap-2">
+                    <Input
+                      placeholder="Venue Name"
+                      value={editingEvent.venue?.name || ''}
+                      onChange={(e) => {
+                        const newVenue = { ...(editingEvent.venue || {}), name: e.target.value };
+                        setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                      }}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Address Line 1"
+                        value={(editingEvent.venue as any)?.address_line_1 || ''}
+                        onChange={(e) => {
+                          const newVenue = { ...(editingEvent.venue || {}), address_line_1: e.target.value };
+                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                        }}
+                      />
+                      <Input
+                        placeholder="Address Line 2"
+                        value={(editingEvent.venue as any)?.address_line_2 || ''}
+                        onChange={(e) => {
+                          const newVenue = { ...(editingEvent.venue || {}), address_line_2: e.target.value };
+                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        placeholder="City"
+                        value={editingEvent.venue?.city || ''}
+                        onChange={(e) => {
+                          const newVenue = { ...(editingEvent.venue || {}), city: e.target.value };
+                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                        }}
+                      />
+                      <Input
+                        placeholder="State"
+                        value={(editingEvent.venue as any)?.state || ''}
+                        onChange={(e) => {
+                          const newVenue = { ...(editingEvent.venue || {}), state: e.target.value };
+                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                        }}
+                      />
+                      <Input
+                        placeholder="Zip"
+                        value={(editingEvent.venue as any)?.postal_code || ''}
+                        onChange={(e) => {
+                          const newVenue = { ...(editingEvent.venue || {}), postal_code: e.target.value };
+                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                        }}
+                      />
+                    </div>
+                    <Input
+                      placeholder="Google Maps Link"
+                      value={(editingEvent.venue as any)?.map_url || ''}
+                      onChange={(e) => {
+                        const newVenue = { ...(editingEvent.venue || {}), map_url: e.target.value };
+                        setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
-              {editingEvent.description && (
-                <div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Description</label>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {editingEvent.description.replace(/<[^>]*>/g, '')}
-                  </p>
+                  <Textarea
+                    value={editingEvent.description || ''}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                    className="min-h-[150px]"
+                  />
                 </div>
-              )}
+              </div>
               <div className="pt-4 flex gap-2 pb-6">
                 <Button
                   className="flex-1"
                   onClick={async () => {
-                    const { error } = await supabase.from('events').update({
-                      image_url: editingEvent.image_url
+                    // 1. Update Event Fields
+                    const { error: eventError } = await supabase.from('events').update({
+                      image_url: editingEvent.image_url,
+                      title: editingEvent.title,
+                      description: editingEvent.description,
+                      start_time: editingEvent.start_time,
+                      end_time: editingEvent.end_time,
                     }).eq('id', editingEvent.id);
 
-                    if (!error) {
+                    // 2. Update Venue (if venue exists and has ID)
+                    if (!eventError && editingEvent.venue?.id) {
+                      const { error: venueError } = await supabase.from('venues').update({
+                        name: editingEvent.venue.name,
+                        address_line_1: (editingEvent.venue as any).address_line_1,
+                        address_line_2: (editingEvent.venue as any).address_line_2,
+                        city: editingEvent.venue.city,
+                        state: (editingEvent.venue as any).state,
+                        postal_code: (editingEvent.venue as any).postal_code,
+                        map_url: (editingEvent.venue as any).map_url
+                      }).eq('id', editingEvent.venue.id);
+
+                      if (venueError) {
+                        console.error("Failed to update venue:", venueError);
+                      }
+                    }
+
+                    if (!eventError) {
                       toast.success("Event updated");
                       setEditingEvent(null);
+                      queryClient.invalidateQueries({ queryKey: ["events"] });
                     } else {
                       toast.error("Failed to update event");
+                      console.error(eventError);
                     }
                   }}
                 >

@@ -19,6 +19,12 @@ interface EventData {
     status: "draft" | "pending" | "approved" | "rejected";
     source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
     source_url: string;
+    is_series: boolean;
+    dates: string[];
+    organizer?: string;
+    location?: string;
+    address?: string;
+    google_maps_link?: string;
 }
 
 serve(async (req) => {
@@ -44,6 +50,8 @@ serve(async (req) => {
             price_min: null,
             price_max: null,
             end_time: null,
+            is_series: false,
+            dates: [],
         };
 
         // Determine source
@@ -97,9 +105,6 @@ serve(async (req) => {
 
             if (response.ok) {
                 const data = await response.json();
-                // Data structure: { code: 200, status: 200, data: { title: "...", description: "...", url: "...", content: "..." } }
-                // Note: Structure might vary, sometimes it matches the return format directly. 
-                // Let's assume standard response or check fields.
 
                 const jinaData = data.data || data; // Handle potential wrapper
 
@@ -113,11 +118,6 @@ serve(async (req) => {
                     // Image: Look for !()[url]
                     const imageMatch = content.match(/!\[.*?\]\((.*?)\)/);
                     if (imageMatch && imageMatch[1]) eventData.image_url = imageMatch[1];
-
-                    // Date: Very heuristic. Look for common patterns? 
-                    // For now, leave start_time as now() or null if not found, 
-                    // users will likely have to edit imported events anyway.
-                    // If we have a description, we use it. 
 
                     // Facebook specific cleanup
                     if (eventData.source === "facebook" && eventData.title) {
@@ -137,7 +137,6 @@ serve(async (req) => {
 
         if (!eventData.title) {
             // Fallback title if everything failed
-            // Don't error, return what we have so user can fill it in
             eventData.title = "New Event (Import Failed)";
             eventData.description = "Could not verify details from URL. Please enter manually.";
         }
@@ -169,6 +168,13 @@ function parseHtml(html: string, url: string) {
     let description = getMeta("og:description") || getMeta("description") || "";
     let image_url = getMeta("og:image");
     let start_time = new Date().toISOString();
+    let end_time: string | null = null;
+    let is_series = false;
+    let dates: string[] = [];
+    let organizer: string | undefined = undefined;
+    let location: string | undefined = undefined;
+    let address: string | undefined = undefined;
+    let google_maps_link: string | undefined = undefined;
 
     // Cleaning
     if (title) title = title.replace(" | Eventbrite", "").replace(" | Meetup", "");
@@ -187,10 +193,52 @@ function parseHtml(html: string, url: string) {
                     if (eventSchema.name) title = eventSchema.name;
                     if (eventSchema.description) description = eventSchema.description;
                     if (eventSchema.startDate) start_time = eventSchema.startDate;
+                    if (eventSchema.endDate) end_time = eventSchema.endDate;
+
                     if (eventSchema.image) {
                         const img = eventSchema.image;
                         image_url = Array.isArray(img) ? img[0] : (typeof img === 'string' ? img : img.url);
                     }
+
+                    // Location
+                    if (eventSchema.location) {
+                        const loc = eventSchema.location;
+                        if (loc.name) location = loc.name;
+
+                        // Address
+                        if (loc.address) {
+                            if (typeof loc.address === 'string') {
+                                address = loc.address;
+                            } else if (typeof loc.address === 'object') {
+                                const parts = [
+                                    loc.address.streetAddress,
+                                    loc.address.addressLocality,
+                                    loc.address.addressRegion,
+                                    loc.address.postalCode
+                                ].filter(Boolean);
+                                address = parts.join(", ");
+                            }
+                        }
+                    }
+
+                    // Organizer
+                    if (eventSchema.organizer) {
+                        if (typeof eventSchema.organizer === 'string') {
+                            organizer = eventSchema.organizer;
+                        } else if (eventSchema.organizer.name) {
+                            organizer = eventSchema.organizer.name;
+                        }
+                    }
+
+                    // Series Detection (subEvent)
+                    if (eventSchema.subEvent && Array.isArray(eventSchema.subEvent)) {
+                        is_series = true;
+                        dates = eventSchema.subEvent
+                            .map((e: any) => e.startDate)
+                            .filter((d: string) => d)
+                            .sort();
+                    }
+
                     break;
                 }
             }
@@ -199,5 +247,26 @@ function parseHtml(html: string, url: string) {
         }
     }
 
-    return { title, description, image_url, start_time };
+    // Google Maps Link Generation
+    if (address || location) {
+        // Prefer address, fallback to location name
+        const query = address || location;
+        if (query) {
+            google_maps_link = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+        }
+    }
+
+    return {
+        title,
+        description,
+        image_url,
+        start_time,
+        end_time,
+        is_series,
+        dates,
+        organizer,
+        location,
+        address,
+        google_maps_link
+    };
 }
