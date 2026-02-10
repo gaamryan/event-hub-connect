@@ -35,6 +35,9 @@ interface ScrapedEvent {
   price_min?: number | null;
   price_max?: number | null;
   _warning?: string;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
 }
 
 interface ImportEventDialogProps {
@@ -219,25 +222,33 @@ full url to cover image: ${event.image_url || "TBD"}`;
 
       for (const event of previewEvents) {
         // Clean up UI-only properties
-        // 'location' must be removed (not in events table). 'ticket_url', 'price_min', 'price_max' are kept.
-        const { id, _warning, is_series, dates, import_mode, organizer, google_maps_link, address, location, ...baseEvent } = event;
+        // 'location' must be removed. 'venue' must be removed (is object).
+        const {
+          id, _warning, is_series, dates, import_mode,
+          organizer, google_maps_link, address, location, venue,
+          city: eventCity, state: eventState, postal_code: eventZip,
+          ...baseEvent
+        } = event;
 
         // 1. Upsert Venue first if exists
         let venue_id = null;
-        if (baseEvent.venue || location) {
-          const venueName = baseEvent.venue?.name || location;
+        if (venue || location) { // derived from destructured vars
+          const venueName = venue?.name || location;
           if (venueName) {
-            // Try to find existing venue by name approx? or just insert new ones for now to be safe
-            // Better strategy: Simple check if exists by name
-            const { data: existingVenue } = await supabase.from('venues').select('id').eq('name', venueName).single();
+            // Try to find existing venue by name
+            const { data: existingVenue } = await supabase.from('venues').select('id').eq('name', venueName).maybeSingle();
 
             if (existingVenue) {
               venue_id = existingVenue.id;
             } else {
               // Create new venue
+              const addrParts = parseAddress(address || "");
               const { data: newVenue, error: venueError } = await supabase.from('venues').insert({
                 name: venueName,
-                address_line_1: address || null,
+                address_line_1: addrParts.addressLine1 || address || null,
+                city: addrParts.city || eventCity || null,
+                state: addrParts.state || eventState || null,
+                postal_code: addrParts.postalCode || eventZip || null,
                 map_url: google_maps_link || null
               }).select().single();
 
@@ -246,6 +257,26 @@ full url to cover image: ${event.image_url || "TBD"}`;
               } else {
                 console.error("Failed to create venue", venueError);
               }
+            }
+          }
+        }
+
+        // 2. Upsert Host first if exists
+        let host_id = null;
+        if (organizer) {
+          const { data: existingHost } = await supabase.from('hosts').select('id').eq('name', organizer).single();
+          if (existingHost) {
+            host_id = existingHost.id;
+          } else {
+            const { data: newHost, error: hostError } = await supabase.from('hosts').insert({
+              name: organizer,
+              source: manualSource // or default to manual
+            }).select().single();
+
+            if (!hostError && newHost) {
+              host_id = newHost.id;
+            } else {
+              console.error("Failed to create host", hostError);
             }
           }
         }
@@ -263,8 +294,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           description: richDescription,
           status: "approved", // FORCE APPROVED
           venue_id: venue_id,
-          // Remove the 'venue' object property which causes the error
-          venue: undefined
+          host_id: host_id
         };
 
         if (is_series && import_mode === "split" && dates && dates.length > 0) {
@@ -298,9 +328,9 @@ full url to cover image: ${event.image_url || "TBD"}`;
       setTextInput("");
       setPreviewEvents([]);
       setManualSource("manual");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to save events");
+      toast.error(`Failed to save events: ${err.message || err.details || "Unknown error"}`);
     } finally {
       setIsLoading(false);
       setLoadingMessage("");
@@ -382,7 +412,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
                     onChange={(e) => setTextInput(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Supported fields: Event Name, Start Date, Description, Ticket URL, Page URL, Venue, Address.
+                    Supported fields: Event Name, Start Date, Start Time, End Date, End Time, Description, Ticket URL, Page URL, Venue, Address, Host.
                   </p>
                 </div>
                 {error && <ErrorMessage message={error} />}
@@ -571,27 +601,33 @@ function ErrorMessage({ message }: { message: string }) {
 
 // Helper: Parse Key-Value text
 function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEvent {
-  const lines = text.split('\n');
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   const data: any = {};
 
-  // Heuristic regexes
-  const keys = {
-    title: /^(?:Event Name|Title):\s*(.*)/i,
-    start_time: /^(?:Start Date|Date|Time|Start Date & Time):\s*(.*)/i,
-    ticket_url: /^(?:Ticket URL|Tickets):\s*(.*)/i,
-    source_url: /^(?:Page URL|URL|Link):\s*(.*)/i,
-    venue: /^(?:Event Venue|Venue|Location):\s*(.*)/i,
-    description: /^(?:Description|Details):\s*(.*)/i,
-    address: /^(?:Address):\s*(.*)/i,
-  };
+  // Comprehensive Regexes matching user format
+  const strategies = [
+    { key: 'title', regex: /^(?:Event Name|Title):\s*(.*)/i },
+    { key: 'start_date', regex: /^(?:Event Start Date|Start Date|Date):\s*(.*)/i },
+    { key: 'start_time', regex: /^(?:Event Start Time|Start Time|Time):\s*(.*)/i },
+    { key: 'end_date', regex: /^(?:Event End Date|End Date):\s*(.*)/i },
+    { key: 'end_time', regex: /^(?:Event End Time|End Time):\s*(.*)/i },
+    { key: 'venue', regex: /^(?:Location.*|Venue):\s*(.*)/i }, // Matches "Location (street...):"
+    { key: 'address', regex: /^(?:Address):\s*(.*)/i },
+    { key: 'map_link', regex: /^(?:Google Maps Link.*):\s*(.*)/i },
+    { key: 'organizer', regex: /^(?:Host|Organizer):\s*(.*)/i },
+    { key: 'ticket_url', regex: /^(?:Ticket Link|Tickets|Ticket URL):\s*(.*)/i },
+    { key: 'description', regex: /^(?:Description|Details):\s*(.*)/i },
+    { key: 'cost', regex: /^(?:Cost|Price):\s*(.*)/i },
+    { key: 'image_url', regex: /^(?:Full URL.*image|Cover Image|Image URL):\s*(.*)/i },
+  ];
 
-  let currentKey = "description_append"; // Default to appending to description if no key matches
+  let currentKey = "description_append";
   let descriptionBuffer = "";
 
   for (const line of lines) {
     let matched = false;
 
-    for (const [key, regex] of Object.entries(keys)) {
+    for (const { key, regex } of strategies) {
       const match = line.match(regex);
       if (match) {
         if (key === 'description') {
@@ -599,7 +635,7 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
           descriptionBuffer += match[1] + "\n";
         } else {
           data[key] = match[1].trim();
-          currentKey = key; // Track checks
+          currentKey = key;
         }
         matched = true;
         break;
@@ -607,45 +643,110 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     }
 
     if (!matched) {
+      // Append continuation lines to description if we are in description mode
+      // OR if it's just general text that didn't match anything and we haven't started matching yet
       if (currentKey === 'description' || currentKey === 'description_append') {
         descriptionBuffer += line + "\n";
       }
     }
   }
 
-  // Combine description
+  // Combine description (prepend title if it ended up in description buffer?)
+  // Actually, mostly just use buffer.
   data.description = descriptionBuffer.trim();
 
-  // Date Parsing
-  let startDate = new Date().toISOString();
-  if (data.start_time) {
-    // Try natural parsing
-    const parsed = Date.parse(data.start_time);
-    if (!isNaN(parsed)) {
-      startDate = new Date(parsed).toISOString();
-    } else {
-      console.warn("Could not parse date:", data.start_time);
+  // Date Parsing Helper
+  const parseDateTime = (dateStr?: string, timeStr?: string) => {
+    if (!dateStr) return null;
+    let combined = dateStr;
+    if (timeStr) combined += ` ${timeStr}`;
+
+    const parsed = Date.parse(combined);
+    if (!isNaN(parsed)) return new Date(parsed).toISOString();
+    return null;
+  };
+
+  const startIso = parseDateTime(data.start_date || data.start_time, data.start_time) || new Date().toISOString();
+  // Fallback: if only start_time matched (because regex matched "Time" for date?), handle gracefully?
+  // User input "Event Start Date" is specific. 
+
+  const endIso = parseDateTime(data.end_date || data.start_date, data.end_time); // Fallback to start date if end time provided but no end date
+
+  const finalUrl = data.ticket_url || ""; // source_url is effectively ticket link in this context
+
+  // Cost parsing (naive)
+  let minPrice = 0;
+  let maxPrice = 0;
+  if (data.cost) {
+    const nums = data.cost.match(/\$?(\d+)/g);
+    if (nums) {
+      if (nums.length === 1) {
+        minPrice = maxPrice = parseInt(nums[0].replace('$', ''));
+      } else {
+        minPrice = parseInt(nums[0].replace('$', ''));
+        maxPrice = parseInt(nums[nums.length - 1].replace('$', ''));
+      }
     }
-  }
-
-  // Handle "Page URL" vs "Ticket URL" -> prefer Page URL for source_url
-  const finalUrl = data.source_url || data.ticket_url || "";
-
-  // Construct Venue object if both present
-  let venueObj = null;
-  if (data.venue) {
-    venueObj = { name: data.venue };
   }
 
   return {
     title: data.title || "New Event",
     description: data.description || "",
-    start_time: startDate,
-    image_url: null, // No image parsing from text supported yet
+    start_time: startIso,
+    end_time: endIso,
+    image_url: data.image_url || null,
     source_url: finalUrl,
     status: "approved",
     source: source,
-    venue: venueObj,
+    venue: data.venue ? { name: data.venue } : null,
+    organizer: data.organizer,
+    address: data.address,
+    location: data.venue, // Map venue name to location as well
+    google_maps_link: data.map_link,
+    price_min: minPrice,
+    price_max: maxPrice,
+    ticket_url: data.ticket_url,
+    city: data.city,
+    state: data.state,
+    postal_code: data.postal_code,
     _warning: undefined
   };
+}
+
+// Logic to try and break down an address string
+function parseAddress(addressStr: string) {
+  if (!addressStr) return {};
+
+  // Heuristic: "1000 Water St, Jacksonville, FL 32204"
+  // Regex for: Street, City, State Zip
+  const parts = addressStr.split(',').map(p => p.trim());
+
+  // Simple state/zip logic: "FL 32204"
+  const stateZipRegex = /^([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/i;
+
+  const result: any = {
+    addressLine1: parts[0]
+  };
+
+  if (parts.length >= 3) {
+    result.city = parts[1];
+    const stateZipMatch = parts[2].match(stateZipRegex);
+    if (stateZipMatch) {
+      result.state = stateZipMatch[1];
+      result.postalCode = stateZipMatch[2];
+    } else {
+      result.state = parts[2];
+    }
+  } else if (parts.length === 2) {
+    // "Jacksonville, FL 32204" or "1000 Water St, Jacksonville"
+    const stateZipMatch = parts[1].match(stateZipRegex);
+    if (stateZipMatch) {
+      result.state = stateZipMatch[1];
+      result.postalCode = stateZipMatch[2];
+    } else {
+      result.city = parts[1];
+    }
+  }
+
+  return result;
 }

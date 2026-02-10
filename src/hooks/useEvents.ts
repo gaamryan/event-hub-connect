@@ -54,9 +54,9 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
         .from("events")
         .select(`
           *,
-          venue:venues(id, name, city),
-          host:hosts(id, name),
-          category:categories(id, name, slug, icon, color)
+          venue:venues(*),
+          host:hosts(*),
+          category:categories(*)
         `)
         .eq("status", "approved");
 
@@ -139,9 +139,9 @@ export function useFeaturedEvents() {
         .from("events")
         .select(`
           *,
-          venue:venues(id, name, city),
-          host:hosts(id, name),
-          category:categories(id, name, slug, icon, color)
+          venue:venues(*),
+          host:hosts(*),
+          category:categories(*)
         `)
         .eq("status", "approved")
         .eq("featured", true)
@@ -167,9 +167,9 @@ export function useAllEvents(filters?: {
         .from("events")
         .select(`
           *,
-          venue:venues(id, name, city),
-          host:hosts(id, name),
-          category:categories(id, name, slug, icon, color)
+          venue:venues(*),
+          host:hosts(*),
+          category:categories(*)
         `)
         .order("created_at", { ascending: false });
 

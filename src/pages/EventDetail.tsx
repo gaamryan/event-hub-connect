@@ -13,16 +13,19 @@ import {
   BookmarkCheck,
   User,
   Globe,
+  Edit,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSingleEvent } from "@/hooks/useSingleEvent";
+import { useIsAdmin } from "@/hooks/useAuth";
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useIsAdmin();
   const { data: event, isLoading, error } = useSingleEvent(id);
 
   const handleShare = async () => {
@@ -112,6 +115,17 @@ const EventDetail = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex gap-2">
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/admin?edit=${id}`)}
+                className="rounded-full text-primary"
+                title="Edit Event"
+              >
+                <Edit className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

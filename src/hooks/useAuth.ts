@@ -53,11 +53,16 @@ export function useAuth() {
 }
 
 export function useIsAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If we're still loading the initial session, keep loading true and return
+    if (authLoading) {
+      return;
+    }
+
     async function checkAdmin() {
       if (!user) {
         setIsAdmin(false);
@@ -65,19 +70,25 @@ export function useIsAdmin() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
 
-      setIsAdmin(!!data && !error);
-      setLoading(false);
+        setIsAdmin(!!data && !error);
+      } catch (err) {
+        console.error("Error checking admin status:", err);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
     }
 
     checkAdmin();
-  }, [user]);
+  }, [user, authLoading]);
 
-  return { isAdmin, loading };
+  return { isAdmin, loading: loading || authLoading };
 }

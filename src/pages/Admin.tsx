@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
+import { useSingleEvent } from "@/hooks/useSingleEvent";
 import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
 import { CreateEventDialog } from "@/components/admin/CreateEventDialog";
 import { DataSources } from "@/components/admin/DataSources";
@@ -69,6 +71,34 @@ const Admin = () => {
     source: sourceFilter,
     search: searchQuery || undefined,
   });
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const { data: directEvent } = useSingleEvent(editId || undefined);
+
+  useEffect(() => {
+    // Priority 1: Check if the event is already in the main events list
+    if (editId && events && !editingEvent) {
+      const eventToEdit = events.find((e) => e.id === editId);
+      if (eventToEdit) {
+        setEditingEvent(eventToEdit);
+        clearEditParam();
+        return;
+      }
+    }
+
+    // Priority 2: Use the direct fetch if the list doesn't contain it (e.g. filtered)
+    if (editId && directEvent && !editingEvent) {
+      setEditingEvent(directEvent as any);
+      clearEditParam();
+    }
+  }, [editId, events, directEvent, editingEvent]);
+
+  const clearEditParam = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("edit");
+    setSearchParams(newParams, { replace: true });
+  };
 
   const updateStatus = useUpdateEventStatus();
   const deleteEvents = useDeleteEvents();
@@ -433,6 +463,18 @@ const Admin = () => {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Host</label>
+                  <Input
+                    placeholder="Host Name"
+                    value={editingEvent.host?.name || ''}
+                    onChange={(e) => {
+                      const newHost = { ...(editingEvent.host || { id: '' }), name: e.target.value };
+                      setEditingEvent({ ...editingEvent, host: newHost as any });
+                    }}
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Start Time</label>
@@ -528,6 +570,45 @@ const Admin = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Price Min ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={editingEvent.price_min ?? ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, price_min: e.target.value ? parseFloat(e.target.value) : null })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Price Max ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={editingEvent.price_max ?? ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, price_max: e.target.value ? parseFloat(e.target.value) : null })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 py-2">
+                  <Checkbox
+                    id="is_free"
+                    checked={!!editingEvent.is_free}
+                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, is_free: !!checked })}
+                  />
+                  <label htmlFor="is_free" className="text-sm font-medium cursor-pointer">This is a free event</label>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Ticket URL</label>
+                  <Input
+                    placeholder="https://..."
+                    value={editingEvent.ticket_url || ''}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, ticket_url: e.target.value })}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Description</label>
                   <Textarea
@@ -548,6 +629,10 @@ const Admin = () => {
                       description: editingEvent.description,
                       start_time: editingEvent.start_time,
                       end_time: editingEvent.end_time,
+                      price_min: editingEvent.price_min,
+                      price_max: editingEvent.price_max,
+                      is_free: editingEvent.is_free,
+                      ticket_url: editingEvent.ticket_url,
                     }).eq('id', editingEvent.id);
 
                     // 2. Update Venue (if venue exists and has ID)
@@ -564,6 +649,17 @@ const Admin = () => {
 
                       if (venueError) {
                         console.error("Failed to update venue:", venueError);
+                      }
+                    }
+
+                    // 3. Update Host (if host exists and has ID)
+                    if (!eventError && editingEvent.host?.id) {
+                      const { error: hostError } = await supabase.from('hosts').update({
+                        name: editingEvent.host.name
+                      }).eq('id', editingEvent.host.id);
+
+                      if (hostError) {
+                        console.error("Failed to update host:", hostError);
                       }
                     }
 

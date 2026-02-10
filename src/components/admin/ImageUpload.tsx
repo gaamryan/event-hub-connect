@@ -29,19 +29,35 @@ export function ImageUpload({ value, onChange, className, disabled }: ImageUploa
         formData.append("file", file);
 
         try {
-            const { data, error } = await supabase.functions.invoke("optimize-image", {
-                body: formData,
-            });
+            // Create a promise that rejects after 20 seconds
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Upload timed out after 20 seconds")), 20000)
+            );
+
+            // Race the invoke call against the timeout
+            const response = (await Promise.race([
+                supabase.functions.invoke("optimize-image", {
+                    body: formData,
+                }),
+                timeoutPromise
+            ])) as { data: any; error: any };
+
+            const { data, error } = response;
 
             if (error) throw error;
 
             if (data?.url) {
                 onChange(data.url);
                 toast.success("Image uploaded and optimized");
+            } else if (data?.error) {
+                throw new Error(data.error);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload failed:", error);
-            toast.error("Failed to upload image. Please try again.");
+            const message = error.message === "Upload timed out after 20 seconds"
+                ? "The upload is taking too long. Please try a smaller image or paste a URL instead."
+                : "Failed to upload image. Please try again.";
+            toast.error(message);
         } finally {
             setLoading(false);
         }
