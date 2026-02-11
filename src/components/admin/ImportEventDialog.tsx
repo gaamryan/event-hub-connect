@@ -220,7 +220,51 @@ full url to cover image: ${event.image_url || "TBD"}`;
     try {
       const eventsToInsert: any[] = [];
 
-      for (const event of previewEvents) {
+      // 1. Process Images in Parallel (Concurrency Limit: 3)
+      const concurrencyLimit = 3;
+      let processedCount = 0;
+      const totalEvents = previewEvents.length;
+
+      const processImage = async (event: ScrapedEvent) => {
+        let finalImageUrl = event.image_url;
+        if (finalImageUrl && !finalImageUrl.includes("supabase.co")) {
+          try {
+            // Using a shorter timeout for the optimization call client-side to fail fast
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+
+            const { data: uploadData, error: uploadError } = await supabase.functions.invoke('optimize-image', {
+              body: { imageUrl: finalImageUrl },
+              headers: { "x-client-timeout": "25000" } // Hint to server (optional)
+            });
+            clearTimeout(timeoutId);
+
+            if (!uploadError && uploadData?.url) {
+              finalImageUrl = uploadData.url;
+            } else {
+              console.warn(`Image optimization failed for "${event.title}":`, uploadError || uploadData?.error);
+              // Keep original URL but maybe flag it? 
+            }
+          } catch (imgErr) {
+            console.warn(`Image optimization crashed for "${event.title}":`, imgErr);
+          }
+        }
+        processedCount++;
+        setLoadingMessage(`Importing ${processedCount}/${totalEvents}: Optimized images...`);
+        return { ...event, image_url: finalImageUrl };
+      };
+
+      // Helper for concurrency
+      const chunkedEvents = [];
+      for (let i = 0; i < previewEvents.length; i += concurrencyLimit) {
+        const chunk = previewEvents.slice(i, i + concurrencyLimit);
+        const processedChunk = await Promise.all(chunk.map(processImage));
+        chunkedEvents.push(...processedChunk);
+      }
+
+      const processedEvents = chunkedEvents; // Flat list of events with processed images
+
+      for (const event of processedEvents) {
         // Clean up UI-only properties
         // 'location' must be removed. 'venue' must be removed (is object).
         const {
@@ -230,7 +274,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           ...baseEvent
         } = event;
 
-        // 1. Upsert Venue first if exists
+        // 2. Upsert Venue first if exists (Sequential to avoid race conditions on same venue)
         let venue_id = null;
         if (venue || location) { // derived from destructured vars
           const venueName = venue?.name || location;
@@ -442,13 +486,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
                   <div className="flex gap-3">
                     {/* Thumbnail */}
                     <div className="w-24 h-24 shrink-0 bg-muted rounded overflow-hidden">
-                      {event.image_url ? (
-                        <img src={event.image_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          <AlertCircle className="w-6 h-6 opacity-20" />
-                        </div>
-                      )}
+                      <EventPreviewImage src={event.image_url} alt={event.title} />
                     </div>
 
                     {/* Content */}
@@ -587,6 +625,35 @@ full url to cover image: ${event.image_url || "TBD"}`;
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EventPreviewImage({ src, alt }: { src: string | null, alt: string }) {
+  const [error, setError] = useState(false);
+
+  if (!src || error) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted p-1 text-center">
+        {src ? (
+          <>
+            <AlertCircle className="w-5 h-5 opacity-20 mb-1" />
+            <span className="text-[9px] leading-tight">Preview Restricted<br />(Fixed on Import)</span>
+          </>
+        ) : (
+          <AlertCircle className="w-6 h-6 opacity-20" />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-cover"
+      referrerPolicy="no-referrer"
+      onError={() => setError(true)}
+    />
   );
 }
 

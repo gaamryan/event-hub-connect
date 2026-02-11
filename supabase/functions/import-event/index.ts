@@ -176,6 +176,11 @@ function parseHtml(html: string, url: string) {
     let address: string | undefined = undefined;
     let google_maps_link: string | undefined = undefined;
 
+    // Price fields
+    let price_min: number | null = null;
+    let price_max: number | null = null;
+    let is_free: boolean = false;
+
     // Cleaning
     if (title) title = title.replace(" | Eventbrite", "").replace(" | Meetup", "");
 
@@ -239,12 +244,38 @@ function parseHtml(html: string, url: string) {
                             .sort();
                     }
 
+                    // Price / Offers
+                    if (eventSchema.offers) {
+                        const offers = Array.isArray(eventSchema.offers) ? eventSchema.offers : [eventSchema.offers];
+                        const lowPriceOffer = offers.sort((a: any, b: any) => (a.price || a.lowPrice || 0) - (b.price || b.lowPrice || 0))[0];
+                        const highPriceOffer = offers.sort((a: any, b: any) => (b.price || b.highPrice || 0) - (a.price || a.lowPrice || 0))[0];
+
+                        if (lowPriceOffer) {
+                            const min = lowPriceOffer.lowPrice || lowPriceOffer.price;
+                            if (min !== undefined) {
+                                price_min = parseFloat(min);
+                                if (price_min === 0) is_free = true;
+                            }
+                        }
+
+                        if (highPriceOffer) {
+                            const max = highPriceOffer.highPrice || highPriceOffer.price;
+                            if (max !== undefined) {
+                                price_max = parseFloat(max);
+                            }
+                        }
+
+                        // Check explicit "Free"
+                        if (price_min === 0 && price_max === 0) is_free = true;
+                    }
+
                     break;
                 }
             }
         } catch (e) {
             // ignore parse errors
         }
+
     }
 
     // Google Maps Link Generation

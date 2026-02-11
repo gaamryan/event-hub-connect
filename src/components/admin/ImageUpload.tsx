@@ -165,12 +165,25 @@ export function ImageUpload({ value, onChange, className, disabled }: ImageUploa
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {value ? (
+                    <div className="flex gap-2">
+                        <Input
+                            placeholder="https://example.com/image.jpg"
+                            value={urlInput}
+                            onChange={(e) => setUrlInput(e.target.value)}
+                            disabled={disabled}
+                        />
+                        <Button onClick={handleUrlSubmit} disabled={!urlInput || disabled}>
+                            Set
+                        </Button>
+                    </div>
+
+                    {value && (
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-muted border">
                             <img
                                 src={value}
                                 alt="URL Preview"
                                 className="object-cover w-full h-full"
+                                referrerPolicy="no-referrer"
                             />
                             <button
                                 onClick={removeImage}
@@ -178,18 +191,6 @@ export function ImageUpload({ value, onChange, className, disabled }: ImageUploa
                             >
                                 <X className="h-4 w-4" />
                             </button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="https://example.com/image.jpg"
-                                value={urlInput}
-                                onChange={(e) => setUrlInput(e.target.value)}
-                                disabled={disabled}
-                            />
-                            <Button onClick={handleUrlSubmit} disabled={!urlInput || disabled}>
-                                Set
-                            </Button>
                         </div>
                     )}
                     <p className="text-xs text-muted-foreground">

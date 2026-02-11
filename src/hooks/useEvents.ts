@@ -2,6 +2,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { EventFilters } from "@/components/events/FilterDrawer";
 import type { SortOption } from "@/components/events/SortSelect";
+import { startOfDay } from "date-fns";
+
+
+
+// Pagination response wrapper
+export interface PaginatedResult<T> {
+  data: T[];
+  count: number | null;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  color: string | null;
+}
 
 export interface Event {
   id: string;
@@ -28,13 +45,10 @@ export interface Event {
     id: string;
     name: string;
   } | null;
-  category: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string | null;
-    color: string | null;
-  } | null;
+  // JOIN table structure
+  event_categories: {
+    category: Category;
+  }[];
 }
 
 interface UseApprovedEventsOptions {
@@ -42,13 +56,15 @@ interface UseApprovedEventsOptions {
   categoryIds?: string[];
   filters?: EventFilters;
   sortBy?: SortOption;
+  page?: number;     // 0-indexed
+  limit?: number;    // items per page
 }
 
 export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
-  const { categoryId, categoryIds, filters, sortBy = "date_asc" } = options;
+  const { categoryId, categoryIds, filters, sortBy = "date_asc", page = 0, limit = 20 } = options;
 
   return useQuery({
-    queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy],
+    queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy, page, limit],
     queryFn: async () => {
       let query = supabase
         .from("events")
@@ -56,23 +72,35 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
           *,
           venue:venues(*),
           host:hosts(*),
-          category:categories(*)
-        `)
+          event_categories(
+            category:categories(*)
+          )
+        `, { count: 'exact' })
         .eq("status", "approved");
 
-      // Category filter (single)
+      // Apply Pagination
+      const from = page * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+
+      // Category filter (single) - using inner join filtering relies on Supabase support or we filter after
+      // Supabase postgREST supports filtering on related tables!
       if (categoryId) {
-        query = query.eq("category_id", categoryId);
+        // !inner implies inner join, so it only returns events that HAVE this category
+        query = query.eq("event_categories.category_id", categoryId);
       }
 
       // Category filter (multiple)
       if (categoryIds && categoryIds.length > 0) {
-        query = query.in("category_id", categoryIds);
+        query = query.in("event_categories.category_id", categoryIds);
       }
 
       // Date range filter
       if (filters?.dateFrom) {
         query = query.gte("start_time", filters.dateFrom.toISOString());
+      } else {
+        // Default to showing events from start of today
+        query = query.gte("start_time", startOfDay(new Date()).toISOString());
       }
       if (filters?.dateTo) {
         // Set to end of day
@@ -112,11 +140,17 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
           break;
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
 
-      // Client-side location filtering (venue name or city contains search term)
-      let filteredData = data as Event[];
+      // Client-side location filtering
+      let filteredData = data as any[];
+
+      // Transform data to match Event interface if needed, or just cast
+      // The shape returned by supabase will be:
+      // event_categories: [ { category: { ... } }, { category: { ... } } ]
+      // Which matches our interface!
+
       if (filters?.location) {
         const locationLower = filters.location.toLowerCase();
         filteredData = filteredData.filter(
@@ -126,7 +160,7 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
         );
       }
 
-      return filteredData;
+      return { data: filteredData as Event[], count };
     },
   });
 }
@@ -141,7 +175,9 @@ export function useFeaturedEvents() {
           *,
           venue:venues(*),
           host:hosts(*),
-          category:categories(*)
+          event_categories(
+            category:categories(*)
+          )
         `)
         .eq("status", "approved")
         .eq("featured", true)
@@ -169,7 +205,9 @@ export function useAllEvents(filters?: {
           *,
           venue:venues(*),
           host:hosts(*),
-          category:categories(*)
+          event_categories(
+            category:categories(*)
+          )
         `)
         .order("created_at", { ascending: false });
 
@@ -241,6 +279,60 @@ export function useDeleteEvents() {
       const { error } = await supabase.from("events").delete().in("id", eventIds);
       if (error) throw error;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
+export function useBulkUpdateEvents() {
+  const queryClient = useQueryClient();
+
+  mutationFn: async ({
+    eventIds,
+    updates,
+    categoryIds,
+  }: {
+    eventIds: string[];
+    updates: {
+      price_min?: number | null;
+      price_max?: number | null;
+      is_free?: boolean;
+    };
+    categoryIds?: string[];
+  }) => {
+    // 1. Update basic fields
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase
+        .from("events")
+        .update(updates)
+        .in("id", eventIds);
+      if (error) throw error;
+    }
+
+    // 2. Update Categories (if provided)
+    if (categoryIds) {
+      // Remove existing associations for these events
+      const { error: deleteError } = await supabase
+        .from("event_categories")
+        .delete()
+        .in("event_id", eventIds);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new associations
+      if (categoryIds.length > 0) {
+        const associations = [];
+        for (const eventId of eventIds) {
+          for (const catId of categoryIds) {
+            associations.push({ event_id: eventId, category_id: catId });
+          }
+        }
+        const { error: insertError } = await supabase.from("event_categories").insert(associations);
+        if (insertError) throw insertError;
+      }
+    }
+  },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
     },

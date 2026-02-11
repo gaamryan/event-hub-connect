@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, Calendar, Sparkles } from "lucide-react";
 import { startOfWeek, endOfWeek, nextSaturday, nextSunday, isSameDay, startOfDay, endOfDay } from "date-fns";
@@ -9,8 +9,9 @@ import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
-import { useApprovedEvents } from "@/hooks/useEvents";
+import { useApprovedEvents, Event } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
+import { useSettings } from "@/hooks/useSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,16 +19,46 @@ import { Badge } from "@/components/ui/badge";
 type QuickFilter = "this_week" | "this_weekend" | "free" | null;
 
 const Index = () => {
+  const { data: settings } = useSettings();
+  const PAGE_LIMIT = settings?.pagination_limit?.value || 20;
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>(null);
-  
-  const { data: events, isLoading: eventsLoading } = useApprovedEvents({
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+
+  const { data: eventsData, isLoading: eventsLoading } = useApprovedEvents({
     categoryIds: filters.categoryIds,
     filters,
     sortBy,
+    page,
+    limit: PAGE_LIMIT
   });
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(0);
+    setAllEvents([]);
+  }, [filters, sortBy, searchQuery, activeQuickFilter]);
+
+  // Append new events when data arrives
+  useEffect(() => {
+    if (eventsData?.data) {
+      if (page === 0) {
+        setAllEvents(eventsData.data as Event[]);
+      } else {
+        setAllEvents(prev => [...prev, ...(eventsData.data as Event[])]);
+      }
+    }
+  }, [eventsData, page]);
+
+  const hasMore = eventsData?.count ? allEvents.length < eventsData.count : false;
+  const events = allEvents;
+
   const { data: categories } = useCategories();
 
   // Quick filter handlers
@@ -41,10 +72,10 @@ const Index = () => {
   const getThisWeekendDates = () => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    
+
     let saturday: Date;
     let sunday: Date;
-    
+
     // If today is Saturday (6) or Sunday (0), use this weekend
     if (dayOfWeek === 6) {
       saturday = startOfDay(now);
@@ -57,7 +88,7 @@ const Index = () => {
       saturday = startOfDay(nextSaturday(now));
       sunday = endOfDay(nextSunday(now));
     }
-    
+
     return { from: saturday, to: sunday };
   };
 
@@ -82,7 +113,7 @@ const Index = () => {
         const { from, to } = getThisWeekendDates();
         setFilters(prev => ({ ...prev, dateFrom: from, dateTo: to, isFree: undefined }));
       } else if (filter === "free") {
-        setFilters(prev => ({ ...prev, isFree: true }));
+        setFilters(prev => ({ ...prev, isFree: true, dateFrom: undefined, dateTo: undefined }));
       }
     }
   };
@@ -168,8 +199,8 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <PageHeader 
-        title="ILoveGAAM" 
+      <PageHeader
+        title="ILoveGAAM"
         subtitle="Discover events near you"
       />
 
@@ -276,32 +307,45 @@ const Index = () => {
 
       {/* Event List */}
       <div className="p-4 space-y-4">
-        {eventsLoading ? (
+        {eventsLoading && page === 0 ? (
           <EventListSkeleton count={4} />
         ) : filteredEvents && filteredEvents.length > 0 ? (
-          filteredEvents.map((event, index) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <EventCard
-                id={event.id}
-                title={event.title}
-                description={event.description || undefined}
-                imageUrl={event.image_url || undefined}
-                startTime={new Date(event.start_time)}
-                venueName={event.venue?.name}
-                categoryName={event.category?.name}
-                categoryIcon={event.category?.icon || undefined}
-                categoryColor={event.category?.color || undefined}
-                isFree={event.is_free || false}
-                priceMin={event.price_min || undefined}
-                priceMax={event.price_max || undefined}
-              />
-            </motion.div>
-          ))
+          <>
+            {filteredEvents.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <EventCard
+                  id={event.id}
+                  title={event.title}
+                  description={event.description || undefined}
+                  imageUrl={event.image_url || undefined}
+                  startTime={new Date(event.start_time)}
+                  venueName={event.venue?.name}
+                  categories={event.event_categories?.map(ec => ec.category)}
+                  isFree={event.is_free || false}
+                  priceMin={event.price_min || undefined}
+                  priceMax={event.price_max || undefined}
+                />
+              </motion.div>
+            ))}
+
+            {/* Load More Trigger */}
+            {hasMore && (
+              <div className="flex justify-center pt-4 pb-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={eventsLoading}
+                >
+                  {eventsLoading ? "Loading..." : "Load More Events"}
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <motion.div
             initial={{ opacity: 0 }}

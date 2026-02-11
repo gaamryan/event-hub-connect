@@ -13,10 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAllEvents, useUpdateEventStatus, useDeleteEvents, Event } from "@/hooks/useEvents";
 import { useSingleEvent } from "@/hooks/useSingleEvent";
+import { useCategories } from "@/hooks/useCategories";
 import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
 import { CreateEventDialog } from "@/components/admin/CreateEventDialog";
 import { DataSources } from "@/components/admin/DataSources";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { SettingsTab } from "@/components/admin/SettingsTab";
+import { StylesTab } from "@/components/admin/StylesTab";
+import { BulkEditDialog } from "@/components/admin/BulkEditDialog";
 import { NotificationsBtn } from "@/components/ui/NotificationsBtn";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -33,6 +37,9 @@ import {
   Plus,
   Database,
   Calendar,
+  Settings,
+  Palette,
+  RefreshCw
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -52,13 +59,15 @@ const Admin = () => {
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("approved");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
 
   // Auth form state
   const [email, setEmail] = useState("");
@@ -71,6 +80,8 @@ const Admin = () => {
     source: sourceFilter,
     search: searchQuery || undefined,
   });
+
+  const categoriesQuery = useCategories();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const editId = searchParams.get("edit");
@@ -269,6 +280,14 @@ const Admin = () => {
               <Database className="mr-2 h-4 w-4" />
               Data Sources
             </TabsTrigger>
+            <TabsTrigger value="settings" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="styles" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <Palette className="mr-2 h-4 w-4" />
+              Styles
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -331,6 +350,14 @@ const Admin = () => {
                 >
                   <X className="h-4 w-4 mr-1" />
                   Reject
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsBulkEditOpen(true)}
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit
                 </Button>
                 <Button
                   size="sm"
@@ -404,6 +431,14 @@ const Admin = () => {
 
         <TabsContent value="sources" className="p-4 m-0">
           <DataSources />
+        </TabsContent>
+
+        <TabsContent value="settings" className="p-0 m-0">
+          <SettingsTab />
+        </TabsContent>
+
+        <TabsContent value="styles" className="p-0 m-0">
+          <StylesTab />
         </TabsContent>
       </Tabs>
 
@@ -610,6 +645,36 @@ const Admin = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Categories</label>
+                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-md max-h-[150px] overflow-y-auto">
+                    {categoriesQuery.data?.map((cat) => (
+                      <div key={cat.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`cat-${cat.id}`}
+                          checked={editingEvent.event_categories?.some(ec => ec.category.id === cat.id) || false}
+                          onCheckedChange={(checked) => {
+                            let newEC = [...(editingEvent.event_categories || [])];
+                            if (checked) {
+                              newEC.push({ category: cat });
+                            } else {
+                              newEC = newEC.filter(ec => ec.category.id !== cat.id);
+                            }
+                            setEditingEvent({ ...editingEvent, event_categories: newEC });
+                          }}
+                        />
+                        <label
+                          htmlFor={`cat-${cat.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
+                        >
+                          <span>{cat.icon}</span>
+                          {cat.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Description</label>
                   <Textarea
                     value={editingEvent.description || ''}
@@ -619,11 +684,62 @@ const Admin = () => {
                 </div>
               </div>
               <div className="pt-4 flex gap-2 pb-6">
+                {editingEvent.source_url && (
+                  <Button
+                    variant="outline"
+                    disabled={isRefreshing}
+                    onClick={async () => {
+                      setIsRefreshing(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('import-event', {
+                          body: { url: editingEvent.source_url }
+                        });
+
+                        if (error) throw error;
+
+                        // Merge new data into editingEvent
+                        setEditingEvent((prev) => prev ? ({
+                          ...prev,
+                          title: data.title || prev.title,
+                          description: data.description || prev.description,
+                          start_time: data.start_time || prev.start_time,
+                          end_time: data.end_time || prev.end_time,
+                          image_url: data.image_url || prev.image_url,
+                          price_min: data.price_min !== undefined ? data.price_min : prev.price_min,
+                          price_max: data.price_max !== undefined ? data.price_max : prev.price_max,
+                          is_free: data.is_free !== undefined ? data.is_free : prev.is_free,
+                          ticket_url: data.ticket_url || prev.ticket_url,
+                          venue: {
+                            ...prev.venue, // Keep existing ID
+                            name: data.location || prev.venue?.name,
+                            address_line_1: data.address || (prev.venue as any)?.address_line_1,
+                            map_url: data.google_maps_link || (prev.venue as any)?.map_url
+                          } as any,
+                          host: {
+                            ...prev.host, // Keep existing ID
+                            name: data.organizer || prev.host?.name
+                          } as any
+                        }) : null);
+
+                        toast.success("Refreshed details from source");
+                      } catch (error) {
+                        console.error("Refresh failed:", error);
+                        toast.error("Failed to refresh: " + (error as any).message);
+                      } finally {
+                        setIsRefreshing(false);
+                      }
+                    }}
+                  >
+                    <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+                    {isRefreshing ? "Refreshing..." : "Refresh Data"}
+                  </Button>
+                )}
                 <Button
                   className="flex-1"
                   onClick={async () => {
                     // 1. Update Event Fields
                     const { error: eventError } = await supabase.from('events').update({
+                      // ... (existing update logic)
                       image_url: editingEvent.image_url,
                       title: editingEvent.title,
                       description: editingEvent.description,
@@ -635,6 +751,7 @@ const Admin = () => {
                       ticket_url: editingEvent.ticket_url,
                     }).eq('id', editingEvent.id);
 
+                    // ... (existing venue/host update logic)
                     // 2. Update Venue (if venue exists and has ID)
                     if (!eventError && editingEvent.venue?.id) {
                       const { error: venueError } = await supabase.from('venues').update({
@@ -647,9 +764,7 @@ const Admin = () => {
                         map_url: (editingEvent.venue as any).map_url
                       }).eq('id', editingEvent.venue.id);
 
-                      if (venueError) {
-                        console.error("Failed to update venue:", venueError);
-                      }
+                      if (venueError) console.error("Failed to update venue:", venueError);
                     }
 
                     // 3. Update Host (if host exists and has ID)
@@ -658,8 +773,27 @@ const Admin = () => {
                         name: editingEvent.host.name
                       }).eq('id', editingEvent.host.id);
 
-                      if (hostError) {
-                        console.error("Failed to update host:", hostError);
+                      if (hostError) console.error("Failed to update host:", hostError);
+                    }
+
+                    // 4. Update Categories (Delete all, then insert new)
+                    if (!eventError && editingEvent.event_categories) {
+                      try {
+                        // Delete existing
+                        await supabase.from('event_categories').delete().eq('event_id', editingEvent.id);
+
+                        // Insert new
+                        const newAssociations = editingEvent.event_categories.map(ec => ({
+                          event_id: editingEvent.id,
+                          category_id: ec.category.id
+                        }));
+
+                        if (newAssociations.length > 0) {
+                          const { error: catError } = await supabase.from('event_categories').insert(newAssociations);
+                          if (catError) throw catError;
+                        }
+                      } catch (err) {
+                        console.error("Failed to update categories:", err);
                       }
                     }
 
@@ -696,6 +830,13 @@ const Admin = () => {
       <ImportEventDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
       {/* Create Dialog */}
       <CreateEventDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      {/* Bulk Edit Dialog */}
+      <BulkEditDialog
+        open={isBulkEditOpen}
+        onOpenChange={setIsBulkEditOpen}
+        selectedEventIds={Array.from(selectedEvents)}
+        onSuccess={clearSelection}
+      />
     </AppLayout>
   );
 };

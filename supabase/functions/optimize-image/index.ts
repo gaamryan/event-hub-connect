@@ -13,15 +13,47 @@ serve(async (req) => {
     }
 
     try {
-        const formData = await req.formData();
-        const file = formData.get('file') as File;
+        let file: File | null = null;
+        let imageBuffer: ArrayBuffer | null = null;
+        let inputContentType: string | null = null;
 
-        if (!file) {
-            throw new Error('No file uploaded');
+        const contentType = req.headers.get("content-type") || "";
+
+        if (contentType.includes("application/json")) {
+            const { imageUrl } = await req.json();
+            if (!imageUrl) throw new Error("imageUrl is required in JSON body");
+
+            console.log(`Fetching image from URL: ${imageUrl}`);
+            const response = await fetch(imageUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                    "Accept": "image/webp,image/apng,image/*,*/*;q=0.8"
+                }
+            });
+
+            if (!response.ok) throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+
+            const fetchedContentType = response.headers.get("content-type");
+            console.log(`Fetched content type: ${fetchedContentType}`);
+
+            if (!fetchedContentType || !fetchedContentType.startsWith("image/")) {
+                throw new Error(`Invalid content type: ${fetchedContentType}. Expected an image.`);
+            }
+
+            imageBuffer = await response.arrayBuffer();
+            inputContentType = fetchedContentType;
+        } else {
+            const formData = await req.formData();
+            file = formData.get('file') as File;
+
+            if (!file) {
+                throw new Error('No file uploaded');
+            }
+            imageBuffer = await file.arrayBuffer();
         }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        if (!imageBuffer) throw new Error("Failed to process image data");
+        const uint8Array = new Uint8Array(imageBuffer);
 
         // Decode image
         const image = await Image.decode(uint8Array);

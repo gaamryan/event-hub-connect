@@ -10,9 +10,11 @@ interface EventCardProps {
   imageUrl?: string;
   startTime: Date;
   venueName?: string;
-  categoryName?: string;
-  categoryIcon?: string;
-  categoryColor?: string;
+  categories?: {
+    name: string;
+    icon: string | null;
+    color: string | null;
+  }[];
   isFree?: boolean;
   priceMin?: number;
   priceMax?: number;
@@ -28,9 +30,7 @@ export function EventCard({
   imageUrl,
   startTime,
   venueName,
-  categoryName,
-  categoryIcon,
-  categoryColor,
+  categories,
   isFree,
   priceMin,
   priceMax,
@@ -79,7 +79,7 @@ export function EventCard({
         ) : (
           <div className="w-full h-full bg-gradient-primary opacity-20" />
         )}
-        
+
         {/* Save Button */}
         <button
           onClick={(e) => {
@@ -107,18 +107,22 @@ export function EventCard({
       <div className="p-4 space-y-2">
         {/* Category & Date */}
         <div className="flex items-center gap-2 text-sm">
-          {categoryName && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-              style={{
-                backgroundColor: categoryColor ? `${categoryColor}20` : undefined,
-                color: categoryColor || undefined,
-              }}
-            >
-              {categoryIcon && <span>{categoryIcon}</span>}
-              {categoryName}
-            </span>
-          )}
+          {categories && categories.length > 0 && (() => {
+            const primaryCategory = categories[0];
+            return (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: primaryCategory.color ? `${primaryCategory.color}20` : undefined,
+                  color: primaryCategory.color || undefined,
+                }}
+              >
+                {primaryCategory.icon && <span>{primaryCategory.icon}</span>}
+                {primaryCategory.name}
+                {categories.length > 1 && <span className="opacity-70">+{categories.length - 1}</span>}
+              </span>
+            );
+          })()}
           <span className="text-muted-foreground">•</span>
           <span className="text-muted-foreground">{formattedDate}</span>
         </div>
