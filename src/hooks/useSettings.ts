@@ -8,6 +8,7 @@ export interface Settings {
         saved: boolean;
         admin: boolean;
     };
+    import_template?: string;
     site_theme?: {
         colors: {
             primary: string;
