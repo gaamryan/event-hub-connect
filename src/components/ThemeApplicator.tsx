@@ -1,48 +1,94 @@
 import { useEffect } from "react";
-import { useSettings } from "@/hooks/useSettings";
+import { useSettings, DEFAULT_STYLES } from "@/hooks/useSettings";
 
 export function ThemeApplicator() {
     const { data: settings } = useSettings();
 
     useEffect(() => {
-        if (!settings?.site_theme) return;
-
-        const theme = settings.site_theme;
         const root = document.documentElement;
 
-        // Apply Colors
-        if (theme.colors) {
-            Object.entries(theme.colors).forEach(([key, value]) => {
-                // Convert hex to HSL if necessary, or assume stored as usable value
-                // Our system uses HSL values (without hsl() wrapper) for some vars
-                // But let's assume the editor saves exact CSS values or we handle conversion here.
-                // For simplicity, we'll assume the value stored is the direct CSS value (e.g. "12 100% 62%")
-
-                // Map common keys to CSS vars
-                switch (key) {
-                    case 'primary': root.style.setProperty('--primary', value as string); break;
-                    case 'secondary': root.style.setProperty('--secondary', value as string); break;
-                    case 'background': root.style.setProperty('--background', value as string); break;
-                    case 'foreground': root.style.setProperty('--foreground', value as string); break;
-                    case 'card': root.style.setProperty('--card', value as string); break;
-                    case 'accent': root.style.setProperty('--accent', value as string); break;
-                    case 'border': root.style.setProperty('--border', value as string); break;
+        // Apply color theme
+        if (settings?.site_theme?.colors) {
+            const { colors } = settings.site_theme;
+            const map: Record<string, string> = {
+                primary: '--primary',
+                secondary: '--secondary',
+                background: '--background',
+                foreground: '--foreground',
+                card: '--card',
+                accent: '--accent',
+                border: '--border',
+            };
+            Object.entries(map).forEach(([key, cssVar]) => {
+                if (colors[key as keyof typeof colors]) {
+                    root.style.setProperty(cssVar, colors[key as keyof typeof colors]);
                 }
             });
         }
 
-        // Apply Radius
-        if (theme.radius) {
-            root.style.setProperty('--radius', theme.radius);
+        if (settings?.site_theme?.radius) {
+            root.style.setProperty('--radius', settings.site_theme.radius);
         }
 
-        // Apply Fonts (conceptually, would need to load fonts or set family)
-        if (theme.fonts?.heading) {
-            // This might need more complex handling to load Google Fonts dynamically
-            // root.style.setProperty('--font-heading', theme.fonts.heading);
+        // Apply style settings
+        const styles = settings?.site_styles ?? DEFAULT_STYLES;
+        
+        root.style.setProperty('--nav-blur', `${styles.navBlur}px`);
+        root.style.setProperty('--nav-opacity', `${styles.navOpacity}`);
+        root.style.setProperty('--card-darkness', `${styles.cardDarkness}%`);
+        root.style.setProperty('--card-opacity', `${styles.cardOpacity}`);
+        root.style.setProperty('--card-blur', `${styles.cardBlur}px`);
+
+        // Apply background mode
+        if (styles.backgroundMode === "gradient") {
+            root.style.setProperty(
+                '--background',
+                styles.backgroundGradientFrom || DEFAULT_STYLES.backgroundGradientFrom
+            );
+            document.body.style.background = `linear-gradient(${styles.backgroundGradientAngle}deg, hsl(${styles.backgroundGradientFrom}), hsl(${styles.backgroundGradientTo}))`;
+            document.body.style.backgroundAttachment = 'fixed';
+        } else if (styles.backgroundMode === "parallax-icons") {
+            root.style.setProperty('--background', styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
+            document.body.style.background = '';
+            document.body.style.backgroundAttachment = '';
+        } else {
+            // solid
+            root.style.setProperty('--background', styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
+            document.body.style.background = '';
+            document.body.style.backgroundAttachment = '';
         }
 
+        return () => {
+            document.body.style.background = '';
+            document.body.style.backgroundAttachment = '';
+        };
     }, [settings]);
+
+    // Parallax game icons background
+    const styles = settings?.site_styles;
+    if (styles?.backgroundMode === "parallax-icons") {
+        return (
+            <div 
+                className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
+                style={{ background: `hsl(${styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor})` }}
+            >
+                <div 
+                    className="absolute inset-0 opacity-[0.06] text-foreground"
+                    style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='10' y='25' font-size='20'%3E🎮%3C/text%3E%3Ctext x='35' y='50' font-size='16'%3E🕹️%3C/text%3E%3C/svg%3E")`,
+                        backgroundSize: '80px 80px',
+                        animation: 'parallax-scroll 40s linear infinite',
+                    }}
+                />
+                <style>{`
+                    @keyframes parallax-scroll {
+                        0% { transform: translateY(0); }
+                        100% { transform: translateY(-80px); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     return null;
 }
