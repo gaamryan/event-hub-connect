@@ -253,9 +253,24 @@ export function StylesTab() {
                 )}
             </div>
 
-            {/* ─── Navigation Bar ─── */}
+            {/* ─── Top Bar (Header) ─── */}
             <div className="space-y-4 border p-4 rounded-lg bg-card">
-                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Navigation Bar</h4>
+                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Top Bar (Header)</h4>
+                <ColorOrGradientField label="Background" value={styles.topBarBg} onChange={(v) => updateStyle("topBarBg", v)} />
+                <ColorField label="Text Color" value={styles.topBarTextColor} onChange={(v) => updateStyle("topBarTextColor", v)} />
+                <div className="space-y-2">
+                    <Label className="text-xs">Frosted Glass Blur: {styles.topBarBlur}px</Label>
+                    <Slider value={[styles.topBarBlur]} onValueChange={([v]) => updateStyle("topBarBlur", v)} min={0} max={24} step={1} />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs">Opacity: {Math.round(styles.topBarOpacity * 100)}%</Label>
+                    <Slider value={[styles.topBarOpacity * 100]} onValueChange={([v]) => updateStyle("topBarOpacity", v / 100)} min={10} max={100} step={5} />
+                </div>
+            </div>
+
+            {/* ─── Bottom Navigation Bar ─── */}
+            <div className="space-y-4 border p-4 rounded-lg bg-card">
+                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Bottom Navigation Bar</h4>
                 <ColorOrGradientField label="Background" value={styles.navBg} onChange={(v) => updateStyle("navBg", v)} />
                 <ColorField label="Text / Icon Color" value={styles.navTextColor} onChange={(v) => updateStyle("navTextColor", v)} />
                 <div className="space-y-2">
