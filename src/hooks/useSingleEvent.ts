@@ -14,7 +14,9 @@ export function useSingleEvent(eventId: string | undefined) {
           *,
           venue:venues(id, name, city, address_line_1, address_line_2, state, postal_code, latitude, longitude),
           host:hosts(id, name, logo_url, website_url),
-          category:categories(id, name, slug, icon, color)
+          event_categories(
+            category:categories(id, name, slug, icon, color)
+          )
         `)
         .eq("id", eventId)
         .maybeSingle();
@@ -22,7 +24,7 @@ export function useSingleEvent(eventId: string | undefined) {
       if (error) throw error;
       if (!data) throw new Error("Event not found");
 
-      return data as Event & {
+      return data as unknown as Event & {
         venue: {
           id: string;
           name: string;

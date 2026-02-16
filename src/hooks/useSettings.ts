@@ -4,6 +4,10 @@ import { toast } from "sonner";
 
 export interface Settings {
     pagination_limit?: { value: number };
+    nav_visibility?: {
+        saved: boolean;
+        admin: boolean;
+    };
     site_theme?: {
         colors: {
             primary: string;
@@ -28,7 +32,7 @@ export function useSettings() {
         queryKey: ["settings"],
         queryFn: async () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error } = await (supabase.from("settings") as any).select("*");
+            const { data, error } = await (supabase as any).from("settings").select("*");
             if (error) throw error;
 
             // Transform array to object
@@ -49,7 +53,7 @@ export function useUpdateSetting() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mutationFn: async ({ key, value }: { key: string; value: any }) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase.from("settings") as any)
+            const { error } = await (supabase as any).from("settings")
                 .upsert({ key, value });
             if (error) throw error;
         },

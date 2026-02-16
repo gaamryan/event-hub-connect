@@ -55,7 +55,7 @@ const statusColors: Record<string, string> = {
 };
 
 const Admin = () => {
-  const { user, signIn, signUp, signOut, loading: authLoading } = useAuth();
+  const { user, signIn, signOut, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const queryClient = useQueryClient();
 
@@ -72,7 +72,6 @@ const Admin = () => {
   // Auth form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
   const [authError, setAuthError] = useState("");
 
   const { data: events, isLoading } = useAllEvents({
@@ -117,9 +116,7 @@ const Admin = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
-    const { error } = isSignUp
-      ? await signUp(email, password)
-      : await signIn(email, password);
+    const { error } = await signIn(email, password);
     if (error) setAuthError(error.message);
   };
 
@@ -189,7 +186,7 @@ const Admin = () => {
               <LogIn className="h-8 w-8 text-muted-foreground" />
             </div>
             <h2 className="text-xl font-semibold text-center mb-6">
-              {isSignUp ? "Create Account" : "Sign In"}
+              Sign In
             </h2>
 
             <form onSubmit={handleAuth} className="space-y-4">
@@ -212,19 +209,9 @@ const Admin = () => {
                 <p className="text-sm text-destructive">{authError}</p>
               )}
               <Button type="submit" className="w-full">
-                {isSignUp ? "Create Account" : "Sign In"}
+                Sign In
               </Button>
             </form>
-
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-              <button
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary font-medium"
-              >
-                {isSignUp ? "Sign In" : "Sign Up"}
-              </button>
-            </p>
           </motion.div>
         </div>
       </AppLayout>
