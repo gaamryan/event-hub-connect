@@ -394,6 +394,9 @@ const Admin = () => {
                         <span className={cn("status-badge", event.status)}>
                           {event.status}
                         </span>
+                        {event.featured && (
+                          <span className="text-xs">⭐</span>
+                        )}
                         <span className="text-xs text-muted-foreground capitalize">
                           {event.source}
                         </span>
@@ -622,6 +625,15 @@ const Admin = () => {
                   <label htmlFor="is_free" className="text-sm font-medium cursor-pointer">This is a free event</label>
                 </div>
 
+                <div className="flex items-center gap-2 py-2">
+                  <Checkbox
+                    id="is_featured"
+                    checked={!!editingEvent.featured}
+                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, featured: !!checked })}
+                  />
+                  <label htmlFor="is_featured" className="text-sm font-medium cursor-pointer">⭐ Featured event</label>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Ticket URL</label>
                   <Input
@@ -736,6 +748,7 @@ const Admin = () => {
                       price_max: editingEvent.price_max,
                       is_free: editingEvent.is_free,
                       ticket_url: editingEvent.ticket_url,
+                      featured: editingEvent.featured,
                     }).eq('id', editingEvent.id);
 
                     // ... (existing venue/host update logic)

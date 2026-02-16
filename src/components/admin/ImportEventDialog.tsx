@@ -41,6 +41,7 @@ interface ScrapedEvent {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  featured?: boolean;
 }
 
 interface ImportEventDialogProps {
@@ -289,7 +290,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           id, _warning, is_series, dates, import_mode,
           organizer, google_maps_link, address, location, venue,
           city: eventCity, state: eventState, postal_code: eventZip,
-          selectedCategoryIds,
+          selectedCategoryIds, featured,
           ...baseEvent
         } = event;
 
@@ -356,6 +357,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           ...baseEvent,
           description: richDescription,
           status: "approved", // FORCE APPROVED
+          featured: !!featured,
           venue_id: venue_id,
           host_id: host_id
         };
@@ -608,6 +610,22 @@ full url to cover image: ${event.image_url || "TBD"}`;
                           <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded capitalize text-[10px]">
                             Approved
                           </span>
+                        </div>
+
+                        {/* Featured Toggle */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Switch
+                            id={`featured-${event.id}`}
+                            checked={!!event.featured}
+                            onCheckedChange={(checked) => {
+                              setPreviewEvents((prev) => prev.map(e =>
+                                e.id === event.id ? { ...e, featured: checked } : e
+                              ));
+                            }}
+                          />
+                          <label htmlFor={`featured-${event.id}`} className="text-xs font-medium cursor-pointer flex items-center gap-1">
+                            ⭐ Featured
+                          </label>
                         </div>
                       </div>
 
