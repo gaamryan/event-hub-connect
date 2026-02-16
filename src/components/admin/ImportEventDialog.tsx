@@ -8,10 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Calendar, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy } from "lucide-react";
+import { Loader2, Calendar, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
+import { useCategories } from "@/hooks/useCategories";
 
 interface ScrapedEvent {
   id?: string; // Temp ID for React keys
@@ -35,6 +36,7 @@ interface ScrapedEvent {
   price_min?: number | null;
   price_max?: number | null;
   _warning?: string;
+  selectedCategoryIds?: string[];
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
@@ -56,6 +58,7 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
   const [previewEvents, setPreviewEvents] = useState<ScrapedEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { data: categories } = useCategories();
 
   const handlePreview = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -140,6 +143,17 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
     setPreviewEvents((prev) => prev.map(e => e.id === id ? { ...e, import_mode: mode } : e));
   };
 
+  const handleToggleCategory = (eventId: string, categoryId: string) => {
+    setPreviewEvents((prev) => prev.map(e => {
+      if (e.id !== eventId) return e;
+      const current = e.selectedCategoryIds || [];
+      const updated = current.includes(categoryId)
+        ? current.filter(c => c !== categoryId)
+        : [...current, categoryId];
+      return { ...e, selectedCategoryIds: updated };
+    }));
+  };
+
   const handleCopyEvent = (event: ScrapedEvent) => {
     const details = getFormattedEventString(event);
     navigator.clipboard.writeText(details);
@@ -219,8 +233,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
 
     try {
       const eventsToInsert: any[] = [];
-
-      // 1. Process Images in Parallel (Concurrency Limit: 3)
+      const eventCategoryMap: { eventIndex: number; categoryIds: string[] }[] = [];
       const concurrencyLimit = 3;
       let processedCount = 0;
       const totalEvents = previewEvents.length;
@@ -271,6 +284,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           id, _warning, is_series, dates, import_mode,
           organizer, google_maps_link, address, location, venue,
           city: eventCity, state: eventState, postal_code: eventZip,
+          selectedCategoryIds,
           ...baseEvent
         } = event;
 
@@ -341,27 +355,44 @@ full url to cover image: ${event.image_url || "TBD"}`;
           host_id: host_id
         };
 
+        const catIds = selectedCategoryIds || [];
+
         if (is_series && import_mode === "split" && dates && dates.length > 0) {
-          // SPLIT MODE: Create one event per date
           for (const date of dates) {
-            eventsToInsert.push({
-              ...commonData,
-              start_time: date,
-              end_time: null
-            });
+            const idx = eventsToInsert.length;
+            eventsToInsert.push({ ...commonData, start_time: date, end_time: null });
+            if (catIds.length > 0) eventCategoryMap.push({ eventIndex: idx, categoryIds: catIds });
           }
         } else {
-          // MERGE MODE (Default) or Normal Event
           if (is_series && import_mode === "merge") {
             commonData.description += "\n\n(This is a recurring event series.)";
           }
+          const idx = eventsToInsert.length;
           eventsToInsert.push(commonData);
+          if (catIds.length > 0) eventCategoryMap.push({ eventIndex: idx, categoryIds: catIds });
         }
       }
 
-      const { error } = await supabase.from("events").insert(eventsToInsert);
+      const { data: insertedEvents, error } = await supabase.from("events").insert(eventsToInsert).select("id");
 
       if (error) throw error;
+
+      // Insert event_categories links
+      if (insertedEvents && eventCategoryMap.length > 0) {
+        const categoryLinks: { event_id: string; category_id: string }[] = [];
+        for (const mapping of eventCategoryMap) {
+          const eventId = insertedEvents[mapping.eventIndex]?.id;
+          if (eventId) {
+            for (const catId of mapping.categoryIds) {
+              categoryLinks.push({ event_id: eventId, category_id: catId });
+            }
+          }
+        }
+        if (categoryLinks.length > 0) {
+          const { error: catError } = await supabase.from("event_categories").insert(categoryLinks);
+          if (catError) console.error("Failed to link categories:", catError);
+        }
+      }
 
       toast.success(`${eventsToInsert.length} events imported successfully as APPROVED`);
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -574,6 +605,36 @@ full url to cover image: ${event.image_url || "TBD"}`;
                           </span>
                         </div>
                       </div>
+
+                      {/* Category Selection */}
+                      {categories && categories.length > 0 && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Tag className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground">Categories</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {categories.map((cat) => {
+                              const isSelected = event.selectedCategoryIds?.includes(cat.id);
+                              return (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => event.id && handleToggleCategory(event.id, cat.id)}
+                                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                                    isSelected
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50"
+                                  }`}
+                                >
+                                  {cat.icon && <span className="mr-1">{cat.icon}</span>}
+                                  {cat.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {event.is_series && (
                         <div className="mt-2 p-2 bg-secondary/50 rounded-md flex items-center justify-between gap-2">
