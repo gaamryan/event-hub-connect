@@ -80,9 +80,23 @@
     /* Dynamic style tokens (overridden by ThemeApplicator) */
     --nav-blur: 12px;
     --nav-opacity: 0.85;
+    --nav-bg: hsl(0 0% 100%);
+    --nav-text: 210 12% 40%;
     --card-darkness: 0%;
     --card-opacity: 1;
     --card-blur: 0px;
+    --card-bg-custom: hsl(0 0% 100%);
+    --card-text-custom: 210 30% 8%;
+    --input-bg-custom: hsl(0 0% 100%);
+    --input-text-custom: 210 30% 8%;
+    --btn-default-bg: hsl(190 95% 32%);
+    --btn-default-text: 0 0% 100%;
+    --btn-default-hover-bg: 190 95% 28%;
+    --btn-outline-border: 210 16% 88%;
+    --btn-outline-text: 210 30% 8%;
+    --btn-outline-hover-bg: 210 20% 95%;
+    --btn-destructive-bg: 0 84% 60%;
+    --btn-destructive-text: 0 0% 100%;
   }
 
   .dark {
@@ -157,15 +171,18 @@
   /* Bottom Navigation - dynamic glass */
   .bottom-nav {
     @apply fixed bottom-0 left-0 right-0 border-t border-border;
-    background: hsl(var(--card) / var(--nav-opacity));
+    background: var(--nav-bg);
+    opacity: var(--nav-opacity);
     backdrop-filter: blur(var(--nav-blur));
     -webkit-backdrop-filter: blur(var(--nav-blur));
     box-shadow: var(--shadow-bottom-nav);
     padding-bottom: env(safe-area-inset-bottom, 0);
+    color: hsl(var(--nav-text));
   }
 
   .bottom-nav-item {
-    @apply flex flex-col items-center justify-center py-2 px-3 text-muted-foreground transition-colors duration-200;
+    @apply flex flex-col items-center justify-center py-2 px-3 transition-colors duration-200;
+    color: hsl(var(--nav-text));
   }
 
   .bottom-nav-item.active {
@@ -179,7 +196,8 @@
   /* Event Cards - dynamic glass/darkness */
   .event-card {
     @apply rounded-2xl overflow-hidden transition-all duration-300;
-    background: hsl(var(--card) / var(--card-opacity));
+    background: var(--card-bg-custom);
+    color: hsl(var(--card-text-custom));
     backdrop-filter: blur(var(--card-blur));
     -webkit-backdrop-filter: blur(var(--card-blur));
     box-shadow: var(--shadow-card);
