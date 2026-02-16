@@ -36,6 +36,7 @@ const eventSchema = z.object({
   ticket_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   source_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   is_free: z.boolean().default(false),
+  featured: z.boolean().default(false),
   price_min: z.coerce.number().min(0).optional(),
   price_max: z.coerce.number().min(0).optional(),
 });
@@ -66,6 +67,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       ticket_url: "",
       source_url: "",
       is_free: false,
+      featured: false,
     },
   });
 
@@ -116,6 +118,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         ticket_url: data.ticket_url || null,
         source_url: data.source_url || null,
         is_free: data.is_free,
+        featured: data.featured,
         price_min: data.is_free ? null : (data.price_min || null),
         price_max: data.is_free ? null : (data.price_max || null),
         status: "draft",
@@ -365,6 +368,21 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
                   <FormItem className="flex items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
                       <FormLabel>Free Event</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="featured"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>⭐ Featured Event</FormLabel>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
