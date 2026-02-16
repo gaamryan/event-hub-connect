@@ -1,5 +1,12 @@
 import { useEffect } from "react";
-import { useSettings, DEFAULT_STYLES } from "@/hooks/useSettings";
+import { useSettings, DEFAULT_STYLES, type ColorOrGradient } from "@/hooks/useSettings";
+
+function cogToCSS(cog: ColorOrGradient): string {
+    if (cog.mode === "gradient") {
+        return `linear-gradient(${cog.gradientAngle}deg, hsl(${cog.gradientFrom}), hsl(${cog.gradientTo}))`;
+    }
+    return `hsl(${cog.color})`;
+}
 
 export function ThemeApplicator() {
     const { data: settings } = useSettings();
@@ -31,29 +38,46 @@ export function ThemeApplicator() {
         }
 
         // Apply style settings
-        const styles = settings?.site_styles ?? DEFAULT_STYLES;
-        
-        root.style.setProperty('--nav-blur', `${styles.navBlur}px`);
-        root.style.setProperty('--nav-opacity', `${styles.navOpacity}`);
-        root.style.setProperty('--card-darkness', `${styles.cardDarkness}%`);
-        root.style.setProperty('--card-opacity', `${styles.cardOpacity}`);
-        root.style.setProperty('--card-blur', `${styles.cardBlur}px`);
+        const s = { ...DEFAULT_STYLES, ...(settings?.site_styles ?? {}) };
 
-        // Apply background mode
-        if (styles.backgroundMode === "gradient") {
-            root.style.setProperty(
-                '--background',
-                styles.backgroundGradientFrom || DEFAULT_STYLES.backgroundGradientFrom
-            );
-            document.body.style.background = `linear-gradient(${styles.backgroundGradientAngle}deg, hsl(${styles.backgroundGradientFrom}), hsl(${styles.backgroundGradientTo}))`;
+        // Nav
+        root.style.setProperty('--nav-blur', `${s.navBlur}px`);
+        root.style.setProperty('--nav-opacity', `${s.navOpacity}`);
+        root.style.setProperty('--nav-bg', cogToCSS(s.navBg));
+        root.style.setProperty('--nav-text', s.navTextColor);
+
+        // Cards
+        root.style.setProperty('--card-darkness', `${s.cardDarkness}%`);
+        root.style.setProperty('--card-opacity', `${s.cardOpacity}`);
+        root.style.setProperty('--card-blur', `${s.cardBlur}px`);
+        root.style.setProperty('--card-bg-custom', cogToCSS(s.cardBg));
+        root.style.setProperty('--card-text-custom', s.cardTextColor);
+
+        // Inputs
+        root.style.setProperty('--input-bg-custom', cogToCSS(s.inputBg));
+        root.style.setProperty('--input-text-custom', s.inputTextColor);
+
+        // Buttons
+        root.style.setProperty('--btn-default-bg', cogToCSS(s.btnDefaultBg));
+        root.style.setProperty('--btn-default-text', s.btnDefaultText);
+        root.style.setProperty('--btn-default-hover-bg', s.btnDefaultHoverBg);
+        root.style.setProperty('--btn-outline-border', s.btnOutlineBorder);
+        root.style.setProperty('--btn-outline-text', s.btnOutlineText);
+        root.style.setProperty('--btn-outline-hover-bg', s.btnOutlineHoverBg);
+        root.style.setProperty('--btn-destructive-bg', s.btnDestructiveBg);
+        root.style.setProperty('--btn-destructive-text', s.btnDestructiveText);
+
+        // Page background
+        if (s.backgroundMode === "gradient") {
+            root.style.setProperty('--background', s.backgroundGradientFrom || DEFAULT_STYLES.backgroundGradientFrom);
+            document.body.style.background = `linear-gradient(${s.backgroundGradientAngle}deg, hsl(${s.backgroundGradientFrom}), hsl(${s.backgroundGradientTo}))`;
             document.body.style.backgroundAttachment = 'fixed';
-        } else if (styles.backgroundMode === "parallax-icons") {
-            root.style.setProperty('--background', styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
+        } else if (s.backgroundMode === "parallax-icons") {
+            root.style.setProperty('--background', s.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
             document.body.style.background = '';
             document.body.style.backgroundAttachment = '';
         } else {
-            // solid
-            root.style.setProperty('--background', styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
+            root.style.setProperty('--background', s.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor);
             document.body.style.background = '';
             document.body.style.backgroundAttachment = '';
         }
@@ -68,11 +92,11 @@ export function ThemeApplicator() {
     const styles = settings?.site_styles;
     if (styles?.backgroundMode === "parallax-icons") {
         return (
-            <div 
+            <div
                 className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
                 style={{ background: `hsl(${styles.backgroundSolidColor || DEFAULT_STYLES.backgroundSolidColor})` }}
             >
-                <div 
+                <div
                     className="absolute inset-0 opacity-[0.06] text-foreground"
                     style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='10' y='25' font-size='20'%3E🎮%3C/text%3E%3Ctext x='35' y='50' font-size='16'%3E🕹️%3C/text%3E%3C/svg%3E")`,
