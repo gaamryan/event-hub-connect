@@ -22,7 +22,7 @@ const Index = () => {
   const PAGE_LIMIT = settings?.pagination_limit?.value || 20;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<EventFilters>({ categoryIds: ["07198345-ccae-48ac-bc37-e042a56b1faf"] });
+  const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
 
   // Read category from URL query param on mount
