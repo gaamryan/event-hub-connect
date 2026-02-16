@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, endOfWeek, nextSaturday, nextSunday } from "date-fns";
 import { CalendarIcon, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -23,6 +23,8 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Calendar as CalendarIcon2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface EventFilters {
@@ -57,6 +59,31 @@ export function FilterDrawer({
 }: FilterDrawerProps) {
   const [localFilters, setLocalFilters] = useState<EventFilters>(filters);
   const [open, setOpen] = useState(false);
+
+  const getThisWeekDates = () => {
+    const now = new Date();
+    return { from: startOfDay(now), to: endOfDay(endOfWeek(now, { weekStartsOn: 0 })) };
+  };
+
+  const getThisWeekendDates = () => {
+    const now = new Date();
+    const day = now.getDay();
+    let sat: Date, sun: Date;
+    if (day === 6) { sat = startOfDay(now); sun = endOfDay(new Date(now.getTime() + 86400000)); }
+    else if (day === 0) { sat = startOfDay(new Date(now.getTime() - 86400000)); sun = endOfDay(now); }
+    else { sat = startOfDay(nextSaturday(now)); sun = endOfDay(nextSunday(now)); }
+    return { from: sat, to: sun };
+  };
+
+  const isThisWeek = (from: Date, to: Date) => {
+    const w = getThisWeekDates();
+    return Math.abs(from.getTime() - w.from.getTime()) < 1000 && Math.abs(to.getTime() - w.to.getTime()) < 1000;
+  };
+
+  const isThisWeekend = (from: Date, to: Date) => {
+    const w = getThisWeekendDates();
+    return Math.abs(from.getTime() - w.from.getTime()) < 1000 && Math.abs(to.getTime() - w.to.getTime()) < 1000;
+  };
 
   const handleApply = () => {
     onFiltersChange(localFilters);
@@ -119,6 +146,59 @@ export function FilterDrawer({
 
           <ScrollArea className="h-[60vh] px-4">
             <div className="space-y-6 pb-4">
+              {/* Quick Filters */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Quick Filters</Label>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    variant={localFilters.dateFrom && localFilters.dateTo && !localFilters.isFree && isThisWeek(localFilters.dateFrom, localFilters.dateTo) ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full gap-1.5"
+                    onClick={() => {
+                      const { from, to } = getThisWeekDates();
+                      if (localFilters.dateFrom && localFilters.dateTo && isThisWeek(localFilters.dateFrom, localFilters.dateTo)) {
+                        setLocalFilters(prev => { const n = { ...prev }; delete n.dateFrom; delete n.dateTo; return n; });
+                      } else {
+                        setLocalFilters(prev => ({ ...prev, dateFrom: from, dateTo: to, isFree: undefined }));
+                      }
+                    }}
+                  >
+                    <CalendarIcon2 className="h-3.5 w-3.5" />
+                    This Week
+                  </Button>
+                  <Button
+                    variant={localFilters.dateFrom && localFilters.dateTo && !localFilters.isFree && isThisWeekend(localFilters.dateFrom, localFilters.dateTo) ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full gap-1.5"
+                    onClick={() => {
+                      const { from, to } = getThisWeekendDates();
+                      if (localFilters.dateFrom && localFilters.dateTo && isThisWeekend(localFilters.dateFrom, localFilters.dateTo)) {
+                        setLocalFilters(prev => { const n = { ...prev }; delete n.dateFrom; delete n.dateTo; return n; });
+                      } else {
+                        setLocalFilters(prev => ({ ...prev, dateFrom: from, dateTo: to, isFree: undefined }));
+                      }
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    This Weekend
+                  </Button>
+                  <Button
+                    variant={localFilters.isFree ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => {
+                      if (localFilters.isFree) {
+                        setLocalFilters(prev => { const n = { ...prev }; delete n.isFree; return n; });
+                      } else {
+                        setLocalFilters(prev => ({ ...prev, isFree: true, dateFrom: undefined, dateTo: undefined }));
+                      }
+                    }}
+                  >
+                    🎉 Free
+                  </Button>
+                </div>
+              </div>
+
               {/* Categories */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Categories</Label>
