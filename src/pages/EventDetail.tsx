@@ -168,20 +168,25 @@ const EventDetail = () => {
 
             {/* Content */}
             <div className="p-4 space-y-6">
-              {/* Category */}
-              {event.category && (
-                <Badge
-                  className="text-sm"
-                  style={{
-                    backgroundColor: event.category.color
-                      ? `${event.category.color}20`
-                      : undefined,
-                    color: event.category.color || undefined,
-                  }}
-                >
-                  {event.category.icon && <span className="mr-1">{event.category.icon}</span>}
-                  {event.category.name}
-                </Badge>
+              {/* Categories */}
+              {event.event_categories && event.event_categories.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {event.event_categories.map((ec) => (
+                    <Badge
+                      key={ec.category.id}
+                      className="text-sm"
+                      style={{
+                        backgroundColor: ec.category.color
+                          ? `${ec.category.color}20`
+                          : undefined,
+                        color: ec.category.color || undefined,
+                      }}
+                    >
+                      {ec.category.icon && <span className="mr-1">{ec.category.icon}</span>}
+                      {ec.category.name}
+                    </Badge>
+                  ))}
+                </div>
               )}
 
               {/* Title */}

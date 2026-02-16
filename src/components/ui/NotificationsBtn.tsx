@@ -13,7 +13,7 @@ export function NotificationsBtn() {
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             navigator.serviceWorker.ready.then(reg => {
                 setRegistration(reg);
-                reg.pushManager.getSubscription().then(sub => {
+                (reg as any).pushManager?.getSubscription().then((sub: PushSubscription | null) => {
                     setIsSubscribed(!!sub);
                     setLoading(false);
                 });
@@ -56,7 +56,7 @@ export function NotificationsBtn() {
 
             const convertedVapidKey = urlBase64ToUint8Array(vapidKey);
 
-            const subscription = await registration.pushManager.subscribe({
+            const subscription = await (registration as any).pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey
             });

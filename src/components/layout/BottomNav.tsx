@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Compass, Grid3X3, Bookmark, Settings } from "lucide-react";
+import { useSettings } from "@/hooks/useSettings";
+import { useMemo } from "react";
 
 interface NavItem {
   path: string;
@@ -8,15 +10,26 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { path: "/", label: "Discover", icon: Compass },
   { path: "/categories", label: "Categories", icon: Grid3X3 },
-  { path: "/saved", label: "Saved", icon: Bookmark },
-  { path: "/admin", label: "Admin", icon: Settings },
 ];
 
 export function BottomNav() {
   const location = useLocation();
+  const { data: settings } = useSettings();
+
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems];
+    const nav = settings?.nav_visibility;
+    if (nav?.saved) {
+      items.push({ path: "/saved", label: "Saved", icon: Bookmark });
+    }
+    if (nav?.admin) {
+      items.push({ path: "/admin", label: "Admin", icon: Settings });
+    }
+    return items;
+  }, [settings]);
 
   return (
     <nav className="bottom-nav safe-bottom z-50">
