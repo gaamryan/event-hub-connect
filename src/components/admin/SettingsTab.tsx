@@ -3,8 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
 import { Loader2 } from "lucide-react";
+
+const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
+Event Name
+Event Start Date
+Event Start Time
+Event End Date
+Event End Time
+Location (street address, city, state, zipcode)
+Address
+Google Maps Link to Address
+Host
+Ticket Link
+Description
+Cost
+Cover Image : please copy and paste the full url path to the cover image`;
 
 export function SettingsTab() {
     const { data: settings, isLoading } = useSettings();
@@ -13,6 +29,7 @@ export function SettingsTab() {
     const [limit, setLimit] = useState(20);
     const [showSaved, setShowSaved] = useState(false);
     const [showAdmin, setShowAdmin] = useState(false);
+    const [importTemplate, setImportTemplate] = useState(DEFAULT_IMPORT_TEMPLATE);
 
     useEffect(() => {
         if (settings?.pagination_limit?.value) {
@@ -21,6 +38,9 @@ export function SettingsTab() {
         if (settings?.nav_visibility) {
             setShowSaved(settings.nav_visibility.saved ?? false);
             setShowAdmin(settings.nav_visibility.admin ?? false);
+        }
+        if (settings?.import_template) {
+            setImportTemplate(settings.import_template);
         }
     }, [settings]);
 
@@ -39,6 +59,13 @@ export function SettingsTab() {
         updateSetting.mutate({
             key: "nav_visibility",
             value: updated
+        });
+    };
+
+    const handleSaveTemplate = () => {
+        updateSetting.mutate({
+            key: "import_template",
+            value: importTemplate
         });
     };
 
@@ -95,6 +122,21 @@ export function SettingsTab() {
                         <Switch checked={showAdmin} onCheckedChange={(v) => handleNavToggle("admin", v)} />
                     </div>
                 </div>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-medium">Import Template</h3>
+                <p className="text-sm text-muted-foreground">
+                    This text is copied to clipboard when clicking "Copy Template" in the import dialog.
+                </p>
+                <Textarea
+                    value={importTemplate}
+                    onChange={(e) => setImportTemplate(e.target.value)}
+                    className="min-h-[200px] font-mono text-sm"
+                />
+                <Button onClick={handleSaveTemplate} disabled={updateSetting.isPending}>
+                    {updateSetting.isPending ? "Saving..." : "Save Template"}
+                </Button>
             </div>
         </div>
     );

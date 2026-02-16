@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/useCategories";
+import { useSettings } from "@/hooks/useSettings";
 
 interface ScrapedEvent {
   id?: string; // Temp ID for React keys
@@ -59,6 +60,22 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
+  const { data: settings } = useSettings();
+
+  const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
+Event Name
+Event Start Date
+Event Start Time
+Event End Date
+Event End Time
+Location (street address, city, state, zipcode)
+Address
+Google Maps Link to Address
+Host
+Ticket Link
+Description
+Cost
+Cover Image : please copy and paste the full url path to the cover image`;
 
   const handlePreview = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -162,21 +179,9 @@ export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps
 
   const handleQuickCopy = () => {
     if (!textInput) {
-      // Copy AI Prompt
-      const template = `please organize and state the following:
-Event Name
-Event Start Date
-Event Start Time
-Event End Date
-Event End Time
-Location (street address, city, state, zipcode)
-Address
-Google Maps Link to Address
-Host
-Ticket Link
-Description
-Cost
-full url path to the cover image`;
+      const template = (typeof settings?.import_template === 'string' && settings.import_template)
+        ? settings.import_template
+        : DEFAULT_IMPORT_TEMPLATE;
       navigator.clipboard.writeText(template);
       toast.info("AI Prompt copied to clipboard!");
       return;
