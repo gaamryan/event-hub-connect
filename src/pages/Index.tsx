@@ -144,7 +144,7 @@ const Index = () => {
     <AppLayout>
       <PageHeader
         title="ILoveGAAM"
-        subtitle="Discover events near you"
+        subtitle="Events for Gamers, Artists, Music Lovers, Creators & Nerds in Jacksonville and the Southeast"
       />
 
       {/* Search & Filter Bar */}
