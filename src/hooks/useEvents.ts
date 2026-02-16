@@ -63,19 +63,19 @@ interface UseApprovedEventsOptions {
 export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
   const { categoryId, categoryIds, filters, sortBy = "date_asc", page = 0, limit = 20 } = options;
 
+  const hasCategoryFilter = !!(categoryId || (categoryIds && categoryIds.length > 0));
+
   return useQuery({
     queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy, page, limit],
     queryFn: async () => {
+      // Use !inner join when filtering by category so only matching events are returned
+      const selectQuery = hasCategoryFilter
+        ? `*, venue:venues(*), host:hosts(*), event_categories!inner(category:categories(*))`
+        : `*, venue:venues(*), host:hosts(*), event_categories(category:categories(*))`;
+
       let query = supabase
         .from("events")
-        .select(`
-          *,
-          venue:venues(*),
-          host:hosts(*),
-          event_categories(
-            category:categories(*)
-          )
-        `, { count: 'exact' })
+        .select(selectQuery, { count: 'exact' })
         .eq("status", "approved");
 
       // Apply Pagination
@@ -83,10 +83,8 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
       const to = from + limit - 1;
       query = query.range(from, to);
 
-      // Category filter (single) - using inner join filtering relies on Supabase support or we filter after
-      // Supabase postgREST supports filtering on related tables!
+      // Category filter (single)
       if (categoryId) {
-        // !inner implies inner join, so it only returns events that HAVE this category
         query = query.eq("event_categories.category_id", categoryId);
       }
 
