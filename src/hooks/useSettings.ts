@@ -44,9 +44,9 @@ export interface Settings {
 
 export const DEFAULT_STYLES: StyleSettings = {
     backgroundMode: "solid",
-    backgroundSolidColor: "220 20% 97%",
-    backgroundGradientFrom: "220 30% 8%",
-    backgroundGradientTo: "217 91% 50%",
+    backgroundSolidColor: "210 25% 97%",
+    backgroundGradientFrom: "210 30% 6%",
+    backgroundGradientTo: "190 95% 32%",
     backgroundGradientAngle: 135,
     navBlur: 12,
     navOpacity: 0.85,

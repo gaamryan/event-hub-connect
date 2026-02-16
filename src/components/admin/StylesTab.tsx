@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,15 +8,65 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+// HSL string "210 100% 45%" <-> hex conversion
+function hslStringToHex(hslStr: string): string {
+    try {
+        const parts = hslStr.trim().split(/[\s,]+/);
+        const h = parseFloat(parts[0]) / 360;
+        const s = parseFloat(parts[1]) / 100;
+        const l = parseFloat(parts[2]) / 100;
+        const hue2rgb = (p: number, q: number, t: number) => {
+            if (t < 0) t += 1; if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        let r, g, b;
+        if (s === 0) { r = g = b = l; } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        const toHex = (c: number) => Math.round(c * 255).toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    } catch { return "#3b82f6"; }
+}
+
+function hexToHslString(hex: string): string {
+    try {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!result) return "210 100% 45%";
+        let r = parseInt(result[1], 16) / 255;
+        let g = parseInt(result[2], 16) / 255;
+        let b = parseInt(result[3], 16) / 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h = 0, s = 0;
+        const l = (max + min) / 2;
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+        }
+        return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    } catch { return "210 100% 45%"; }
+}
+
 const DEFAULT_THEME = {
     colors: {
-        primary: "217 91% 50%",
-        secondary: "220 16% 94%",
-        background: "220 20% 97%",
-        foreground: "220 30% 8%",
+        primary: "190 95% 39%",
+        secondary: "210 20% 93%",
+        background: "210 25% 97%",
+        foreground: "210 30% 8%",
         card: "0 0% 100%",
-        accent: "210 100% 56%",
-        border: "220 14% 90%"
+        accent: "200 100% 44%",
+        border: "210 16% 88%"
     },
     radius: "1rem",
     fonts: {
@@ -110,8 +160,16 @@ export function StylesTab() {
                     ].map(({ key, label }) => (
                         <div key={key} className="space-y-2">
                             <Label>{label}</Label>
-                            <div className="flex gap-2">
-                                <div className="w-8 h-8 rounded border flex-shrink-0" style={{ backgroundColor: `hsl(${theme.colors[key]})` }} />
+                            <div className="flex gap-2 items-center">
+                                <label className="relative w-8 h-8 rounded border flex-shrink-0 cursor-pointer overflow-hidden">
+                                    <input
+                                        type="color"
+                                        value={hslStringToHex(theme.colors[key])}
+                                        onChange={(e) => handleColorChange(key, hexToHslString(e.target.value))}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    <div className="w-full h-full" style={{ backgroundColor: `hsl(${theme.colors[key]})` }} />
+                                </label>
                                 <Input value={theme.colors[key]} onChange={(e) => handleColorChange(key, e.target.value)} />
                             </div>
                         </div>
