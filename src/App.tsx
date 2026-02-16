@@ -11,10 +11,13 @@ import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
 import { Analytics } from "./components/Analytics";
 
+import { ThemeApplicator } from "./components/ThemeApplicator";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeApplicator />
     <TooltipProvider>
       <Toaster />
       <Sonner />

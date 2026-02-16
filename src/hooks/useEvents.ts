@@ -288,51 +288,52 @@ export function useDeleteEvents() {
 export function useBulkUpdateEvents() {
   const queryClient = useQueryClient();
 
-  mutationFn: async ({
-    eventIds,
-    updates,
-    categoryIds,
-  }: {
-    eventIds: string[];
-    updates: {
-      price_min?: number | null;
-      price_max?: number | null;
-      is_free?: boolean;
-    };
-    categoryIds?: string[];
-  }) => {
-    // 1. Update basic fields
-    if (Object.keys(updates).length > 0) {
-      const { error } = await supabase
-        .from("events")
-        .update(updates)
-        .in("id", eventIds);
-      if (error) throw error;
-    }
-
-    // 2. Update Categories (if provided)
-    if (categoryIds) {
-      // Remove existing associations for these events
-      const { error: deleteError } = await supabase
-        .from("event_categories")
-        .delete()
-        .in("event_id", eventIds);
-
-      if (deleteError) throw deleteError;
-
-      // Insert new associations
-      if (categoryIds.length > 0) {
-        const associations = [];
-        for (const eventId of eventIds) {
-          for (const catId of categoryIds) {
-            associations.push({ event_id: eventId, category_id: catId });
-          }
-        }
-        const { error: insertError } = await supabase.from("event_categories").insert(associations);
-        if (insertError) throw insertError;
+  return useMutation({
+    mutationFn: async ({
+      eventIds,
+      updates,
+      categoryIds,
+    }: {
+      eventIds: string[];
+      updates: {
+        price_min?: number | null;
+        price_max?: number | null;
+        is_free?: boolean;
+      };
+      categoryIds?: string[];
+    }) => {
+      // 1. Update basic fields
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase
+          .from("events")
+          .update(updates)
+          .in("id", eventIds);
+        if (error) throw error;
       }
-    }
-  },
+
+      // 2. Update Categories (if provided)
+      if (categoryIds) {
+        // Remove existing associations for these events
+        const { error: deleteError } = await supabase
+          .from("event_categories")
+          .delete()
+          .in("event_id", eventIds);
+
+        if (deleteError) throw deleteError;
+
+        // Insert new associations
+        if (categoryIds.length > 0) {
+          const associations = [];
+          for (const eventId of eventIds) {
+            for (const catId of categoryIds) {
+              associations.push({ event_id: eventId, category_id: catId });
+            }
+          }
+          const { error: insertError } = await supabase.from("event_categories").insert(associations);
+          if (insertError) throw insertError;
+        }
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
     },
