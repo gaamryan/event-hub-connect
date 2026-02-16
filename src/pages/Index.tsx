@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, Calendar, Sparkles } from "lucide-react";
 import { startOfWeek, endOfWeek, nextSaturday, nextSunday, isSameDay, startOfDay, endOfDay } from "date-fns";
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 type QuickFilter = "this_week" | "this_weekend" | "free" | null;
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: settings } = useSettings();
   const PAGE_LIMIT = settings?.pagination_limit?.value || 20;
 
@@ -26,6 +28,17 @@ const Index = () => {
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>(null);
+
+  // Read category from URL query param on mount
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get("category");
+    if (categoryFromUrl) {
+      setFilters(prev => ({ ...prev, categoryIds: [categoryFromUrl] }));
+      // Clean up the URL param so it doesn't persist on filter changes
+      searchParams.delete("category");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pagination
   const [page, setPage] = useState(0);
