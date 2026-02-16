@@ -16,7 +16,12 @@ export interface StyleSettings {
     backgroundGradientFrom: string;
     backgroundGradientTo: string;
     backgroundGradientAngle: number;
-    // Nav
+    // Top Bar
+    topBarBg: ColorOrGradient;
+    topBarTextColor: string;
+    topBarBlur: number;
+    topBarOpacity: number;
+    // Bottom Nav
     navBlur: number;
     navOpacity: number;
     navBg: ColorOrGradient;
@@ -78,6 +83,10 @@ export const DEFAULT_STYLES: StyleSettings = {
     backgroundGradientFrom: "210 30% 6%",
     backgroundGradientTo: "190 95% 32%",
     backgroundGradientAngle: 135,
+    topBarBg: defaultCog("0 0% 100%"),
+    topBarTextColor: "210 30% 8%",
+    topBarBlur: 12,
+    topBarOpacity: 0.95,
     navBlur: 12,
     navOpacity: 0.85,
     navBg: defaultCog("0 0% 100%"),

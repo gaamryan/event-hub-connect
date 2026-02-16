@@ -13,16 +13,23 @@ export function PageHeader({ title, subtitle, children, className, sticky = true
   return (
     <header
       className={cn(
-        "px-4 py-4 bg-background/95 backdrop-blur-md border-b border-border z-40",
+        "px-4 py-4 border-b border-border z-40",
         sticky && "sticky top-0",
         className
       )}
+      style={{
+        background: 'var(--topbar-bg)',
+        color: `hsl(var(--topbar-text))`,
+        backdropFilter: `blur(var(--topbar-blur))`,
+        WebkitBackdropFilter: `blur(var(--topbar-blur))`,
+        opacity: 'var(--topbar-opacity)',
+      }}
     >
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           {subtitle && (
-            <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+            <p className="text-sm opacity-70 mt-0.5">{subtitle}</p>
           )}
         </div>
         {children}

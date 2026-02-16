@@ -148,7 +148,7 @@ const Index = () => {
       />
 
       {/* Search & Filter Bar */}
-      <div className="sticky top-[73px] z-30 border-b border-border" style={{ background: 'hsl(var(--card) / var(--nav-opacity))', backdropFilter: 'blur(var(--nav-blur))', WebkitBackdropFilter: 'blur(var(--nav-blur))' }}>
+      <div className="sticky top-[73px] z-30 border-b border-border" style={{ background: 'var(--topbar-bg)', color: `hsl(var(--topbar-text))`, backdropFilter: 'blur(var(--topbar-blur))', WebkitBackdropFilter: 'blur(var(--topbar-blur))' }}>
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
             {/* Search Input with Filter Button Inside */}

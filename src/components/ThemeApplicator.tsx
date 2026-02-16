@@ -40,7 +40,13 @@ export function ThemeApplicator() {
         // Apply style settings
         const s = { ...DEFAULT_STYLES, ...(settings?.site_styles ?? {}) };
 
-        // Nav
+        // Top Bar
+        root.style.setProperty('--topbar-bg', cogToCSS(s.topBarBg));
+        root.style.setProperty('--topbar-text', s.topBarTextColor);
+        root.style.setProperty('--topbar-blur', `${s.topBarBlur}px`);
+        root.style.setProperty('--topbar-opacity', `${s.topBarOpacity}`);
+
+        // Bottom Nav
         root.style.setProperty('--nav-blur', `${s.navBlur}px`);
         root.style.setProperty('--nav-opacity', `${s.navOpacity}`);
         root.style.setProperty('--nav-bg', cogToCSS(s.navBg));

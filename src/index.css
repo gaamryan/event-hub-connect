@@ -78,6 +78,10 @@
     --category-nightlife: 271 80% 44%;
 
     /* Dynamic style tokens (overridden by ThemeApplicator) */
+    --topbar-bg: hsl(0 0% 100%);
+    --topbar-text: 210 30% 8%;
+    --topbar-blur: 12px;
+    --topbar-opacity: 0.95;
     --nav-blur: 12px;
     --nav-opacity: 0.85;
     --nav-bg: hsl(0 0% 100%);
