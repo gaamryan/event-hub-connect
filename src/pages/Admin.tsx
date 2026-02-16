@@ -244,16 +244,18 @@ const Admin = () => {
   return (
     <AppLayout>
       <PageHeader title="Admin" subtitle={`${events?.length || 0} events`}>
-        <Button variant="outline" size="sm" onClick={signOut}>
-          Sign Out
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
-          Import
-        </Button>
-        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={signOut}>
+            Sign Out
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setIsImportOpen(true)}>
+            Import
+          </Button>
+          <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create
+          </Button>
+        </div>
         <NotificationsBtn />
       </PageHeader>
       <Tabs defaultValue="events" className="w-full">
