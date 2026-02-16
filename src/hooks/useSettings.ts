@@ -2,6 +2,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export interface StyleSettings {
+    backgroundMode: "solid" | "gradient" | "parallax-icons";
+    backgroundSolidColor: string;
+    backgroundGradientFrom: string;
+    backgroundGradientTo: string;
+    backgroundGradientAngle: number;
+    navBlur: number;         // px 0–24
+    navOpacity: number;      // 0–1
+    cardDarkness: number;    // 0–100 (%)
+    cardOpacity: number;     // 0–1
+    cardBlur: number;        // px 0–24
+}
+
 export interface Settings {
     pagination_limit?: { value: number };
     nav_visibility?: {
@@ -25,8 +38,22 @@ export interface Settings {
             body: string;
         };
     };
+    site_styles?: StyleSettings;
     [key: string]: any;
 }
+
+export const DEFAULT_STYLES: StyleSettings = {
+    backgroundMode: "solid",
+    backgroundSolidColor: "220 20% 97%",
+    backgroundGradientFrom: "220 30% 8%",
+    backgroundGradientTo: "217 91% 50%",
+    backgroundGradientAngle: 135,
+    navBlur: 12,
+    navOpacity: 0.85,
+    cardDarkness: 0,
+    cardOpacity: 1,
+    cardBlur: 0,
+};
 
 export function useSettings() {
     return useQuery({
@@ -36,7 +63,6 @@ export function useSettings() {
             const { data, error } = await (supabase as any).from("settings").select("*");
             if (error) throw error;
 
-            // Transform array to object
             const settingsObject: Settings = {};
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data.forEach((item: any) => {
