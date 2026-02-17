@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -112,8 +112,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         venueId = venueData.id;
       }
 
-      // Create event
-      const { error: eventError } = await supabase.from("events").insert({
+      // Create parent event
+      const { data: parentEvent, error: eventError } = await supabase.from("events").insert({
         title: data.title,
         description: data.description || null,
         start_time: startDateTime.toISOString(),
@@ -132,11 +132,62 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         is_recurring: data.is_recurring,
         recurrence_frequency: data.is_recurring ? (data.recurrence_frequency || null) : null,
         recurrence_until: data.is_recurring && data.recurrence_until ? data.recurrence_until.toISOString() : null,
-      } as any);
+      } as any).select("id").single();
 
       if (eventError) throw eventError;
 
-      toast.success("Event created successfully");
+      // Auto-generate recurring instances
+      if (data.is_recurring && data.recurrence_frequency && data.recurrence_until && parentEvent) {
+        const instances: any[] = [];
+        const eventDuration = endDateTime ? endDateTime.getTime() - startDateTime.getTime() : null;
+        let currentStart = new Date(startDateTime);
+
+        const getNextDate = (date: Date, freq: string) => {
+          switch (freq) {
+            case "daily": return addDays(date, 1);
+            case "weekly": return addWeeks(date, 1);
+            case "biweekly": return addWeeks(date, 2);
+            case "monthly": return addMonths(date, 1);
+            default: return addDays(date, 7);
+          }
+        };
+
+        // Generate instances (skip the first one — that's the parent)
+        currentStart = getNextDate(currentStart, data.recurrence_frequency);
+        while (currentStart <= data.recurrence_until) {
+          const instanceEnd = eventDuration ? new Date(currentStart.getTime() + eventDuration) : null;
+          instances.push({
+            title: data.title,
+            description: data.description || null,
+            start_time: currentStart.toISOString(),
+            end_time: instanceEnd?.toISOString() || null,
+            category_id: data.category_id || null,
+            venue_id: venueId,
+            image_url: data.image_url || null,
+            ticket_url: data.ticket_url || null,
+            source_url: data.source_url || null,
+            is_free: data.is_free,
+            featured: false,
+            price_min: data.is_free ? null : (data.price_min || null),
+            price_max: data.is_free ? null : (data.price_max || null),
+            status: "draft",
+            source: "manual",
+            is_recurring: true,
+            recurrence_frequency: data.recurrence_frequency,
+            parent_event_id: parentEvent.id,
+          });
+          currentStart = getNextDate(currentStart, data.recurrence_frequency);
+        }
+
+        if (instances.length > 0) {
+          const { error: instancesError } = await supabase.from("events").insert(instances as any);
+          if (instancesError) throw instancesError;
+        }
+
+        toast.success(`Event created with ${instances.length + 1} occurrences`);
+      } else {
+        toast.success("Event created successfully");
+      }
       queryClient.invalidateQueries({ queryKey: ["events"] });
       onOpenChange(false);
       form.reset();

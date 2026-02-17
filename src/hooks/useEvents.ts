@@ -35,6 +35,8 @@ export interface Event {
   source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
   source_url: string | null;
   featured: boolean | null;
+  is_recurring: boolean | null;
+  recurrence_frequency: string | null;
   created_at: string;
   venue: {
     id: string;

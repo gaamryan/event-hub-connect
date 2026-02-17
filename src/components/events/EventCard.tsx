@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Bookmark, BookmarkCheck } from "lucide-react";
+import { Calendar, MapPin, Bookmark, BookmarkCheck, Repeat } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -19,6 +19,7 @@ interface EventCardProps {
   priceMin?: number;
   priceMax?: number;
   isSaved?: boolean;
+  isRecurring?: boolean;
   onSave?: (id: string) => void;
   onClick?: (id: string) => void;
 }
@@ -35,6 +36,7 @@ export function EventCard({
   priceMin,
   priceMax,
   isSaved,
+  isRecurring,
   onSave,
   onClick,
 }: EventCardProps) {
@@ -99,6 +101,14 @@ export function EventCard({
         {price && (
           <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-card/90 backdrop-blur-sm text-sm font-semibold">
             {price}
+          </div>
+        )}
+
+        {/* Recurring Badge */}
+        {isRecurring && (
+          <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-card/90 backdrop-blur-sm text-xs font-medium flex items-center gap-1">
+            <Repeat className="h-3 w-3 text-primary" />
+            <span className="text-foreground">Recurring</span>
           </div>
         )}
       </div>

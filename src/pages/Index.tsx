@@ -243,6 +243,7 @@ const Index = () => {
                   isFree={event.is_free || false}
                   priceMin={event.price_min || undefined}
                   priceMax={event.price_max || undefined}
+                  isRecurring={event.is_recurring || false}
                 />
               </motion.div>
             ))}

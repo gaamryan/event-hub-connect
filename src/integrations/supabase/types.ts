@@ -92,6 +92,7 @@ export type Database = {
           image_url: string | null
           is_free: boolean | null
           is_recurring: boolean | null
+          parent_event_id: string | null
           price_max: number | null
           price_min: number | null
           recurrence_frequency: string | null
@@ -120,6 +121,7 @@ export type Database = {
           image_url?: string | null
           is_free?: boolean | null
           is_recurring?: boolean | null
+          parent_event_id?: string | null
           price_max?: number | null
           price_min?: number | null
           recurrence_frequency?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           image_url?: string | null
           is_free?: boolean | null
           is_recurring?: boolean | null
+          parent_event_id?: string | null
           price_max?: number | null
           price_min?: number | null
           recurrence_frequency?: string | null
@@ -175,6 +178,13 @@ export type Database = {
             columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
