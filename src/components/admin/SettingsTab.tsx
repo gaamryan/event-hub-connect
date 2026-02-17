@@ -30,6 +30,7 @@ export function SettingsTab() {
     const [showSaved, setShowSaved] = useState(false);
     const [showAdmin, setShowAdmin] = useState(false);
     const [importTemplate, setImportTemplate] = useState(DEFAULT_IMPORT_TEMPLATE);
+    const [gaMeasurementId, setGaMeasurementId] = useState("");
 
     useEffect(() => {
         if (settings?.pagination_limit?.value) {
@@ -41,6 +42,9 @@ export function SettingsTab() {
         }
         if (settings?.import_template) {
             setImportTemplate(settings.import_template);
+        }
+        if (settings?.ga_measurement_id) {
+            setGaMeasurementId(settings.ga_measurement_id);
         }
     }, [settings]);
 
@@ -137,6 +141,27 @@ export function SettingsTab() {
                 <Button onClick={handleSaveTemplate} disabled={updateSetting.isPending}>
                     {updateSetting.isPending ? "Saving..." : "Save Template"}
                 </Button>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-medium">Site Analytics</h3>
+                <p className="text-sm text-muted-foreground">
+                    Connect Google Analytics to track visitor activity. Enter your GA4 Measurement ID (e.g. G-XXXXXXXXXX).
+                </p>
+                <div className="flex gap-2">
+                    <Input
+                        placeholder="G-XXXXXXXXXX"
+                        value={gaMeasurementId}
+                        onChange={(e) => setGaMeasurementId(e.target.value)}
+                        className="max-w-[250px]"
+                    />
+                    <Button
+                        onClick={() => updateSetting.mutate({ key: "ga_measurement_id", value: gaMeasurementId })}
+                        disabled={updateSetting.isPending}
+                    >
+                        {updateSetting.isPending ? "Saving..." : "Save"}
+                    </Button>
+                </div>
             </div>
         </div>
     );

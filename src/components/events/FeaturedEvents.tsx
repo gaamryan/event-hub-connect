@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles, Calendar, MapPin } from "lucide-react";
 import { format } from "date-fns";
@@ -6,11 +6,17 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useFeaturedEvents } from "@/hooks/useEvents";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function FeaturedEvents() {
   const { data: events, isLoading } = useFeaturedEvents();
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
+  const hasDragged = useRef(false);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -21,6 +27,44 @@ export function FeaturedEvents() {
       });
     }
   };
+
+  // Auto-rotate on mobile
+  useEffect(() => {
+    if (!isMobile || !events || events.length <= 1) return;
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const interval = setInterval(() => {
+      if (isDragging) return;
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (container.scrollLeft >= maxScroll - 10) {
+        container.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        container.scrollBy({ left: 340, behavior: "smooth" });
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isMobile, events, isDragging]);
+
+  // Mouse drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true);
+    hasDragged.current = false;
+    dragStartX.current = e.clientX;
+    scrollStartX.current = scrollRef.current?.scrollLeft ?? 0;
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    const dx = e.clientX - dragStartX.current;
+    if (Math.abs(dx) > 5) hasDragged.current = true;
+    scrollRef.current.scrollLeft = scrollStartX.current - dx;
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   if (isLoading) {
     return (
@@ -78,8 +122,12 @@ export function FeaturedEvents() {
         {/* Cards */}
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide select-none"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none", cursor: isDragging ? "grabbing" : "grab" }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
           {events.map((event, index) => (
             <motion.div
@@ -88,7 +136,7 @@ export function FeaturedEvents() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.12, type: "spring", stiffness: 200 }}
               className="flex-shrink-0 w-80 snap-start"
-              onClick={() => navigate(`/events/${event.id}`)}
+              onClick={() => { if (!hasDragged.current) navigate(`/events/${event.id}`); }}
             >
               <div className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card border border-border/50">
                 {/* Image */}
