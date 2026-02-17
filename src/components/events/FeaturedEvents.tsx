@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Sparkles, Calendar, MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight, Sparkles, Calendar, MapPin, MoveRight } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,19 @@ export function FeaturedEvents() {
   const dragStartX = useRef(0);
   const scrollStartX = useRef(0);
   const hasDragged = useRef(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+
+  // Show swipe hint on first visit
+  useEffect(() => {
+    if (!events || events.length <= 1) return;
+    const key = "featured_swipe_hint_seen";
+    if (!localStorage.getItem(key)) {
+      setShowSwipeHint(true);
+      localStorage.setItem(key, "1");
+      const timer = setTimeout(() => setShowSwipeHint(false), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [events]);
 
   // Track active dot based on scroll position
   useEffect(() => {
@@ -134,15 +147,16 @@ export function FeaturedEvents() {
         </div>
 
         {/* Cards */}
-        <div
-          ref={scrollRef}
-          className="flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide select-none"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none", cursor: isDragging ? "grabbing" : "grab" }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
+        <div className="relative">
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide select-none"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none", cursor: isDragging ? "grabbing" : "grab" }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
           {events.map((event, index) => (
             <motion.div
               key={event.id}
@@ -224,6 +238,30 @@ export function FeaturedEvents() {
               </div>
             </motion.div>
           ))}
+          </div>
+
+          {/* Swipe hint overlay */}
+          <AnimatePresence>
+            {showSwipeHint && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+              >
+                <div className="bg-foreground/70 backdrop-blur-sm text-background rounded-full px-5 py-2.5 flex items-center gap-2 shadow-lg">
+                  <motion.div
+                    animate={{ x: [0, 12, 0] }}
+                    transition={{ repeat: 2, duration: 0.8, ease: "easeInOut" }}
+                  >
+                    <MoveRight className="h-4 w-4" />
+                  </motion.div>
+                  <span className="text-sm font-medium">Swipe to explore</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Dot indicators */}
