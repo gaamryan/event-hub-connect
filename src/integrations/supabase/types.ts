@@ -95,6 +95,7 @@ export type Database = {
           parent_event_id: string | null
           price_max: number | null
           price_min: number | null
+          pricing_at_site: boolean | null
           recurrence_frequency: string | null
           recurrence_until: string | null
           source: Database["public"]["Enums"]["event_source"] | null
@@ -124,6 +125,7 @@ export type Database = {
           parent_event_id?: string | null
           price_max?: number | null
           price_min?: number | null
+          pricing_at_site?: boolean | null
           recurrence_frequency?: string | null
           recurrence_until?: string | null
           source?: Database["public"]["Enums"]["event_source"] | null
@@ -153,6 +155,7 @@ export type Database = {
           parent_event_id?: string | null
           price_max?: number | null
           price_min?: number | null
+          pricing_at_site?: boolean | null
           recurrence_frequency?: string | null
           recurrence_until?: string | null
           source?: Database["public"]["Enums"]["event_source"] | null

@@ -628,9 +628,18 @@ const Admin = () => {
                   <Checkbox
                     id="is_free"
                     checked={!!editingEvent.is_free}
-                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, is_free: !!checked })}
+                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, is_free: !!checked, ...( checked ? { pricing_at_site: false } : {}) } as any)}
                   />
                   <label htmlFor="is_free" className="text-sm font-medium cursor-pointer">This is a free event</label>
+                </div>
+
+                <div className="flex items-center gap-2 py-2">
+                  <Checkbox
+                    id="pricing_at_site"
+                    checked={!!(editingEvent as any).pricing_at_site}
+                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, pricing_at_site: !!checked, ...( checked ? { is_free: false } : {}) } as any)}
+                  />
+                  <label htmlFor="pricing_at_site" className="text-sm font-medium cursor-pointer">Pricing available at event site</label>
                 </div>
 
                 <div className="flex items-center gap-2 py-2">
@@ -848,6 +857,7 @@ const Admin = () => {
                       price_min: editingEvent.price_min,
                       price_max: editingEvent.price_max,
                       is_free: editingEvent.is_free,
+                      pricing_at_site: (editingEvent as any).pricing_at_site || false,
                       ticket_url: editingEvent.ticket_url,
                       featured: editingEvent.featured,
                       is_recurring: (editingEvent as any).is_recurring || false,
