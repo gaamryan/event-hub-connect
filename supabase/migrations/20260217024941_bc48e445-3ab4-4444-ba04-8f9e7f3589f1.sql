@@ -1,0 +1,1 @@
+ALTER TABLE public.events ADD COLUMN pricing_at_site boolean DEFAULT false;

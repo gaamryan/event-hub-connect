@@ -16,6 +16,7 @@ interface EventCardProps {
     color: string | null;
   }[];
   isFree?: boolean;
+  pricingAtSite?: boolean;
   priceMin?: number;
   priceMax?: number;
   isSaved?: boolean;
@@ -33,6 +34,7 @@ export function EventCard({
   venueName,
   categories,
   isFree,
+  pricingAtSite,
   priceMin,
   priceMax,
   isSaved,
@@ -45,6 +47,7 @@ export function EventCard({
 
   const getPriceDisplay = () => {
     if (isFree) return "Free";
+    if (pricingAtSite) return "See event site";
     if (priceMin && priceMax && priceMin !== priceMax) {
       return `$${priceMin} - $${priceMax}`;
     }

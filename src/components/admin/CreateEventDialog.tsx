@@ -36,6 +36,7 @@ const eventSchema = z.object({
   ticket_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   source_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   is_free: z.boolean().default(false),
+  pricing_at_site: z.boolean().default(false),
   featured: z.boolean().default(false),
   price_min: z.coerce.number().min(0).optional(),
   price_max: z.coerce.number().min(0).optional(),
@@ -77,6 +78,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
   });
 
   const isFree = form.watch("is_free");
+  const pricingAtSite = form.watch("pricing_at_site");
   const isRecurring = form.watch("is_recurring");
 
   const onSubmit = async (data: EventFormData) => {
@@ -124,9 +126,10 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         ticket_url: data.ticket_url || null,
         source_url: data.source_url || null,
         is_free: data.is_free,
+        pricing_at_site: data.pricing_at_site,
         featured: data.featured,
-        price_min: data.is_free ? null : (data.price_min || null),
-        price_max: data.is_free ? null : (data.price_max || null),
+        price_min: (data.is_free || data.pricing_at_site) ? null : (data.price_min || null),
+        price_max: (data.is_free || data.pricing_at_site) ? null : (data.price_max || null),
         status: "draft",
         source: "manual",
         is_recurring: data.is_recurring,
@@ -167,9 +170,10 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
             ticket_url: data.ticket_url || null,
             source_url: data.source_url || null,
             is_free: data.is_free,
+            pricing_at_site: data.pricing_at_site,
             featured: false,
-            price_min: data.is_free ? null : (data.price_min || null),
-            price_max: data.is_free ? null : (data.price_max || null),
+            price_min: (data.is_free || data.pricing_at_site) ? null : (data.price_min || null),
+            price_max: (data.is_free || data.pricing_at_site) ? null : (data.price_max || null),
             status: "draft",
             source: "manual",
             is_recurring: true,
@@ -430,7 +434,28 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
                       <FormLabel>Free Event</FormLabel>
                     </div>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch checked={field.value} onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) form.setValue("pricing_at_site", false);
+                      }} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="pricing_at_site"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Pricing available at event site</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) form.setValue("is_free", false);
+                      }} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -530,7 +555,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
                 </div>
               )}
 
-              {!isFree && (
+              {!isFree && !pricingAtSite && (
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

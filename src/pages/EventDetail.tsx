@@ -80,6 +80,7 @@ const EventDetail = () => {
 
   const getPriceDisplay = () => {
     if (event?.is_free) return "Free";
+    if ((event as any)?.pricing_at_site) return "Pricing available at event site";
     if (event?.price_min && event?.price_max && event.price_min !== event.price_max) {
       return `$${event.price_min} - $${event.price_max}`;
     }

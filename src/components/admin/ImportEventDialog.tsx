@@ -42,6 +42,7 @@ interface ScrapedEvent {
   state?: string | null;
   postal_code?: string | null;
   featured?: boolean;
+  pricing_at_site?: boolean;
   is_recurring?: boolean;
   recurrence_frequency?: string;
   recurrence_until?: string;
@@ -293,7 +294,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           id, _warning, is_series, dates, import_mode,
           organizer, google_maps_link, address, location, venue,
           city: eventCity, state: eventState, postal_code: eventZip,
-          selectedCategoryIds, featured,
+          selectedCategoryIds, featured, pricing_at_site,
           is_recurring, recurrence_frequency, recurrence_until,
           ...baseEvent
         } = event;
@@ -362,6 +363,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           description: richDescription,
           status: "approved",
           featured: !!featured,
+          pricing_at_site: !!pricing_at_site,
           venue_id: venue_id,
           host_id: host_id,
           is_recurring: !!is_recurring,
@@ -649,7 +651,21 @@ full url to cover image: ${event.image_url || "TBD"}`;
                           </label>
                         </div>
 
-                        {/* Recurring Toggle */}
+                        {/* Pricing at Site Toggle */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Switch
+                            id={`pricing-at-site-${event.id}`}
+                            checked={!!event.pricing_at_site}
+                            onCheckedChange={(checked) => {
+                              setPreviewEvents((prev) => prev.map(e =>
+                                e.id === event.id ? { ...e, pricing_at_site: checked } : e
+                              ));
+                            }}
+                          />
+                          <label htmlFor={`pricing-at-site-${event.id}`} className="text-xs font-medium cursor-pointer">
+                            Pricing at event site
+                          </label>
+                        </div>
                         <div className="flex items-center gap-2 mt-2">
                           <Switch
                             id={`recurring-${event.id}`}
@@ -896,14 +912,20 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
   // Cost parsing (naive)
   let minPrice = 0;
   let maxPrice = 0;
+  let pricingAtSite = false;
   if (data.cost) {
-    const nums = data.cost.match(/\$?(\d+)/g);
-    if (nums) {
-      if (nums.length === 1) {
-        minPrice = maxPrice = parseInt(nums[0].replace('$', ''));
-      } else {
-        minPrice = parseInt(nums[0].replace('$', ''));
-        maxPrice = parseInt(nums[nums.length - 1].replace('$', ''));
+    const costLower = data.cost.toLowerCase();
+    if (costLower.includes("available at") || costLower.includes("see event") || costLower.includes("see site") || costLower.includes("check site") || costLower.includes("at the door") || costLower.includes("on site") || costLower.includes("event page") || costLower.includes("varies")) {
+      pricingAtSite = true;
+    } else {
+      const nums = data.cost.match(/\$?(\d+)/g);
+      if (nums) {
+        if (nums.length === 1) {
+          minPrice = maxPrice = parseInt(nums[0].replace('$', ''));
+        } else {
+          minPrice = parseInt(nums[0].replace('$', ''));
+          maxPrice = parseInt(nums[nums.length - 1].replace('$', ''));
+        }
       }
     }
   }
@@ -920,10 +942,11 @@ function parseEventText(text: string, source: ScrapedEvent["source"]): ScrapedEv
     venue: data.venue ? { name: data.venue } : null,
     organizer: data.organizer,
     address: data.address,
-    location: data.venue, // Map venue name to location as well
+    location: data.venue,
     google_maps_link: data.map_link,
     price_min: minPrice,
     price_max: maxPrice,
+    pricing_at_site: pricingAtSite,
     ticket_url: data.ticket_url,
     city: data.city,
     state: data.state,
