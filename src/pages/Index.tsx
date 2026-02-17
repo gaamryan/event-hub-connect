@@ -35,6 +35,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Read category from URL query param on mount
   useEffect(() => {
@@ -178,7 +179,9 @@ const Index = () => {
                 placeholder="Search events..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`pl-10 pr-12 transition-all duration-200 ${isMobile && scrolled ? 'h-9' : 'h-11'}`}
+                onFocus={() => { if (isMobile) setDrawerOpen(true); }}
+                readOnly={isMobile}
+                className={`pl-10 pr-12 transition-all duration-200 ${isMobile && scrolled ? 'h-9' : 'h-11'} ${isMobile ? 'cursor-pointer' : ''}`}
               />
               {searchQuery && (
                 <Button
@@ -197,6 +200,10 @@ const Index = () => {
                   onFiltersChange={setFilters}
                   activeFilterCount={activeFilterCount}
                   categories={categories || []}
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={setSearchQuery}
+                  open={drawerOpen}
+                  onOpenChange={setDrawerOpen}
                 />
               </div>
             </div>
