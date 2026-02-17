@@ -91,8 +91,11 @@ export type Database = {
           image_optimized: boolean | null
           image_url: string | null
           is_free: boolean | null
+          is_recurring: boolean | null
           price_max: number | null
           price_min: number | null
+          recurrence_frequency: string | null
+          recurrence_until: string | null
           source: Database["public"]["Enums"]["event_source"] | null
           source_id: string | null
           source_url: string | null
@@ -116,8 +119,11 @@ export type Database = {
           image_optimized?: boolean | null
           image_url?: string | null
           is_free?: boolean | null
+          is_recurring?: boolean | null
           price_max?: number | null
           price_min?: number | null
+          recurrence_frequency?: string | null
+          recurrence_until?: string | null
           source?: Database["public"]["Enums"]["event_source"] | null
           source_id?: string | null
           source_url?: string | null
@@ -141,8 +147,11 @@ export type Database = {
           image_optimized?: boolean | null
           image_url?: string | null
           is_free?: boolean | null
+          is_recurring?: boolean | null
           price_max?: number | null
           price_min?: number | null
+          recurrence_frequency?: string | null
+          recurrence_until?: string | null
           source?: Database["public"]["Enums"]["event_source"] | null
           source_id?: string | null
           source_url?: string | null

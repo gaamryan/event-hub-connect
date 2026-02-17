@@ -39,6 +39,9 @@ const eventSchema = z.object({
   featured: z.boolean().default(false),
   price_min: z.coerce.number().min(0).optional(),
   price_max: z.coerce.number().min(0).optional(),
+  is_recurring: z.boolean().default(false),
+  recurrence_frequency: z.string().optional(),
+  recurrence_until: z.date().optional(),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -68,10 +71,13 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       source_url: "",
       is_free: false,
       featured: false,
+      is_recurring: false,
+      recurrence_frequency: "",
     },
   });
 
   const isFree = form.watch("is_free");
+  const isRecurring = form.watch("is_recurring");
 
   const onSubmit = async (data: EventFormData) => {
     setIsLoading(true);
@@ -123,7 +129,10 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         price_max: data.is_free ? null : (data.price_max || null),
         status: "draft",
         source: "manual",
-      });
+        is_recurring: data.is_recurring,
+        recurrence_frequency: data.is_recurring ? (data.recurrence_frequency || null) : null,
+        recurrence_until: data.is_recurring && data.recurrence_until ? data.recurrence_until.toISOString() : null,
+      } as any);
 
       if (eventError) throw eventError;
 
@@ -390,6 +399,85 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
                   </FormItem>
                 )}
               />
+
+              {/* Recurring Event */}
+              <FormField
+                control={form.control}
+                name="is_recurring"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>🔁 Repeating Event</FormLabel>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {isRecurring && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="recurrence_frequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Frequency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select frequency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-background border border-border z-50">
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="biweekly">Biweekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="recurrence_until"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Repeat Until</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "PPP") : <span>End date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
               {!isFree && (
                 <div className="grid grid-cols-2 gap-4">
