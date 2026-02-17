@@ -183,7 +183,7 @@ export function useFeaturedEvents() {
         .eq("featured", true)
         .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true })
-        .limit(10);
+        .limit(3);
 
       if (error) throw error;
       return data as Event[];
