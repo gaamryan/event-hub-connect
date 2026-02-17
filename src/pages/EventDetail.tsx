@@ -14,6 +14,7 @@ import {
   User,
   Globe,
   Edit,
+  Repeat,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -207,6 +208,16 @@ const EventDetail = () => {
                       {event.end_time &&
                         ` - ${format(new Date(event.end_time), "h:mm a")}`}
                     </p>
+                    {(event as any).is_recurring && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Repeat className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-sm text-primary font-medium capitalize">
+                          {(event as any).recurrence_frequency === "biweekly"
+                            ? "Every 2 weeks"
+                            : `Every ${(event as any).recurrence_frequency || "week"}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

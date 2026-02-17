@@ -39,7 +39,8 @@ import {
   Calendar,
   Settings,
   Palette,
-  RefreshCw
+  RefreshCw,
+  Repeat
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -399,6 +400,11 @@ const Admin = () => {
                         {event.featured && (
                           <span className="text-xs">⭐</span>
                         )}
+                        {(event as any).is_recurring && (
+                          <span className="text-xs flex items-center gap-0.5 text-primary">
+                            <Repeat className="h-3 w-3" />
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground capitalize">
                           {event.source}
                         </span>
@@ -636,6 +642,100 @@ const Admin = () => {
                   <label htmlFor="is_featured" className="text-sm font-medium cursor-pointer">⭐ Featured event</label>
                 </div>
 
+                {/* Recurring controls */}
+                <div className="flex items-center gap-2 py-2">
+                  <Checkbox
+                    id="is_recurring"
+                    checked={!!(editingEvent as any).is_recurring}
+                    onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, is_recurring: !!checked } as any)}
+                  />
+                  <label htmlFor="is_recurring" className="text-sm font-medium cursor-pointer">🔁 Repeating event</label>
+                </div>
+
+                {(editingEvent as any).is_recurring && (
+                  <div className="space-y-2 pl-6 border-l-2 border-primary/20">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Frequency</label>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={(editingEvent as any).recurrence_frequency || ""}
+                        onChange={(e) => setEditingEvent({ ...editingEvent, recurrence_frequency: e.target.value || null } as any)}
+                      >
+                        <option value="">Select frequency</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Biweekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    {/* Edit all instances button */}
+                    {(editingEvent as any).parent_event_id || (editingEvent as any).is_recurring ? (
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={async () => {
+                            const parentId = (editingEvent as any).parent_event_id || editingEvent.id;
+                            // Update all instances with the same parent
+                            const { error } = await supabase
+                              .from("events")
+                              .update({
+                                title: editingEvent.title,
+                                description: editingEvent.description,
+                                image_url: editingEvent.image_url,
+                                ticket_url: editingEvent.ticket_url,
+                                price_min: editingEvent.price_min,
+                                price_max: editingEvent.price_max,
+                                is_free: editingEvent.is_free,
+                                status: editingEvent.status,
+                              } as any)
+                              .or(`id.eq.${parentId},parent_event_id.eq.${parentId}`);
+                            if (error) {
+                              toast.error("Failed to update all instances");
+                              console.error(error);
+                            } else {
+                              toast.success("Updated all recurring instances");
+                              queryClient.invalidateQueries({ queryKey: ["events"] });
+                            }
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Update All Instances
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            const parentId = (editingEvent as any).parent_event_id || editingEvent.id;
+                            // Delete all instances with the same parent
+                            const { error: err1 } = await supabase
+                              .from("events")
+                              .delete()
+                              .eq("parent_event_id", parentId);
+                            const { error: err2 } = await supabase
+                              .from("events")
+                              .delete()
+                              .eq("id", parentId);
+                            if (err1 || err2) {
+                              toast.error("Failed to delete all instances");
+                            } else {
+                              toast.success("Deleted all recurring instances");
+                              setEditingEvent(null);
+                              queryClient.invalidateQueries({ queryKey: ["events"] });
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete All Instances
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Ticket URL</label>
                   <Input
@@ -740,7 +840,6 @@ const Admin = () => {
                   onClick={async () => {
                     // 1. Update Event Fields
                     const { error: eventError } = await supabase.from('events').update({
-                      // ... (existing update logic)
                       image_url: editingEvent.image_url,
                       title: editingEvent.title,
                       description: editingEvent.description,
@@ -751,7 +850,9 @@ const Admin = () => {
                       is_free: editingEvent.is_free,
                       ticket_url: editingEvent.ticket_url,
                       featured: editingEvent.featured,
-                    }).eq('id', editingEvent.id);
+                      is_recurring: (editingEvent as any).is_recurring || false,
+                      recurrence_frequency: (editingEvent as any).recurrence_frequency || null,
+                    } as any).eq('id', editingEvent.id);
 
                     // ... (existing venue/host update logic)
                     // 2. Update Venue (if venue exists and has ID)

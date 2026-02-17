@@ -16,7 +16,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useSettings } from "@/hooks/useSettings";
 
 interface ScrapedEvent {
-  id?: string; // Temp ID for React keys
+  id?: string;
   title: string;
   description: string;
   start_time: string;
@@ -42,6 +42,9 @@ interface ScrapedEvent {
   state?: string | null;
   postal_code?: string | null;
   featured?: boolean;
+  is_recurring?: boolean;
+  recurrence_frequency?: string;
+  recurrence_until?: string;
 }
 
 interface ImportEventDialogProps {
@@ -291,6 +294,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
           organizer, google_maps_link, address, location, venue,
           city: eventCity, state: eventState, postal_code: eventZip,
           selectedCategoryIds, featured,
+          is_recurring, recurrence_frequency, recurrence_until,
           ...baseEvent
         } = event;
 
@@ -353,13 +357,16 @@ full url to cover image: ${event.image_url || "TBD"}`;
         // Map link is now in venue, but keep in description if specific event link differs? No, clean is better.
 
         // Prepare base object
-        const commonData = {
+        const commonData: any = {
           ...baseEvent,
           description: richDescription,
-          status: "approved", // FORCE APPROVED
+          status: "approved",
           featured: !!featured,
           venue_id: venue_id,
-          host_id: host_id
+          host_id: host_id,
+          is_recurring: !!is_recurring,
+          recurrence_frequency: is_recurring ? (recurrence_frequency || null) : null,
+          recurrence_until: is_recurring && recurrence_until ? new Date(recurrence_until).toISOString() : null,
         };
 
         const catIds = selectedCategoryIds || [];
@@ -641,6 +648,53 @@ full url to cover image: ${event.image_url || "TBD"}`;
                             ⭐ Featured
                           </label>
                         </div>
+
+                        {/* Recurring Toggle */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Switch
+                            id={`recurring-${event.id}`}
+                            checked={!!event.is_recurring}
+                            onCheckedChange={(checked) => {
+                              setPreviewEvents((prev) => prev.map(e =>
+                                e.id === event.id ? { ...e, is_recurring: checked } : e
+                              ));
+                            }}
+                          />
+                          <label htmlFor={`recurring-${event.id}`} className="text-xs font-medium cursor-pointer flex items-center gap-1">
+                            🔁 Recurring
+                          </label>
+                        </div>
+
+                        {event.is_recurring && (
+                          <div className="flex gap-2 mt-1.5">
+                            <select
+                              className="flex h-7 rounded-md border border-input bg-background px-2 text-xs flex-1"
+                              value={event.recurrence_frequency || ""}
+                              onChange={(e) => {
+                                setPreviewEvents((prev) => prev.map(ev =>
+                                  ev.id === event.id ? { ...ev, recurrence_frequency: e.target.value } : ev
+                                ));
+                              }}
+                            >
+                              <option value="">Frequency</option>
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="biweekly">Biweekly</option>
+                              <option value="monthly">Monthly</option>
+                            </select>
+                            <Input
+                              type="date"
+                              className="h-7 text-xs flex-1"
+                              placeholder="Until"
+                              value={event.recurrence_until || ""}
+                              onChange={(e) => {
+                                setPreviewEvents((prev) => prev.map(ev =>
+                                  ev.id === event.id ? { ...ev, recurrence_until: e.target.value } : ev
+                                ));
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Category Selection */}
