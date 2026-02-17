@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 
 const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
 Event Name
@@ -31,6 +31,8 @@ export function SettingsTab() {
     const [showAdmin, setShowAdmin] = useState(false);
     const [importTemplate, setImportTemplate] = useState(DEFAULT_IMPORT_TEMPLATE);
     const [gaMeasurementId, setGaMeasurementId] = useState("");
+    const [gaVerifyStatus, setGaVerifyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+    const [lookerStudioUrl, setLookerStudioUrl] = useState("");
 
     useEffect(() => {
         if (settings?.pagination_limit?.value) {
@@ -46,7 +48,23 @@ export function SettingsTab() {
         if (settings?.ga_measurement_id) {
             setGaMeasurementId(settings.ga_measurement_id);
         }
+        if (settings?.looker_studio_url) {
+            setLookerStudioUrl(settings.looker_studio_url);
+        }
     }, [settings]);
+
+    const handleVerifyGA = () => {
+        const id = gaMeasurementId.trim();
+        if (!id) {
+            setGaVerifyStatus("invalid");
+            return;
+        }
+        const valid = /^G-[A-Z0-9]{6,12}$/i.test(id);
+        setGaVerifyStatus("checking");
+        setTimeout(() => {
+            setGaVerifyStatus(valid ? "valid" : "invalid");
+        }, 800);
+    };
 
     const handleSave = () => {
         updateSetting.mutate({
@@ -148,15 +166,60 @@ export function SettingsTab() {
                 <p className="text-sm text-muted-foreground">
                     Connect Google Analytics to track visitor activity. Enter your GA4 Measurement ID (e.g. G-XXXXXXXXXX).
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                     <Input
                         placeholder="G-XXXXXXXXXX"
                         value={gaMeasurementId}
-                        onChange={(e) => setGaMeasurementId(e.target.value)}
+                        onChange={(e) => { setGaMeasurementId(e.target.value); setGaVerifyStatus("idle"); }}
                         className="max-w-[250px]"
                     />
                     <Button
                         onClick={() => updateSetting.mutate({ key: "ga_measurement_id", value: gaMeasurementId })}
+                        disabled={updateSetting.isPending}
+                    >
+                        {updateSetting.isPending ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleVerifyGA}
+                        disabled={gaVerifyStatus === "checking"}
+                    >
+                        {gaVerifyStatus === "checking" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : gaVerifyStatus === "valid" ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        ) : gaVerifyStatus === "invalid" ? (
+                            <XCircle className="h-4 w-4 text-destructive" />
+                        ) : (
+                            "Verify"
+                        )}
+                    </Button>
+                </div>
+                {gaVerifyStatus === "valid" && (
+                    <p className="text-sm text-green-600">✓ Measurement ID format is valid.</p>
+                )}
+                {gaVerifyStatus === "invalid" && (
+                    <p className="text-sm text-destructive">✗ Invalid format. Expected G-XXXXXXXXXX.</p>
+                )}
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-medium">Analytics Dashboard Embed</h3>
+                <p className="text-sm text-muted-foreground">
+                    Paste a Looker Studio embed URL to display your analytics dashboard in the Analytics tab. 
+                    <a href="https://lookerstudio.google.com" target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 ml-1 hover:underline">
+                        Create a report <ExternalLink className="h-3 w-3" />
+                    </a>
+                </p>
+                <div className="flex gap-2">
+                    <Input
+                        placeholder="https://lookerstudio.google.com/embed/reporting/..."
+                        value={lookerStudioUrl}
+                        onChange={(e) => setLookerStudioUrl(e.target.value)}
+                        className="flex-1"
+                    />
+                    <Button
+                        onClick={() => updateSetting.mutate({ key: "looker_studio_url", value: lookerStudioUrl })}
                         disabled={updateSetting.isPending}
                     >
                         {updateSetting.isPending ? "Saving..." : "Save"}

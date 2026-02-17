@@ -20,6 +20,7 @@ import { DataSources } from "@/components/admin/DataSources";
 import { ImageUpload } from "@/components/admin/ImageUpload";
 import { SettingsTab } from "@/components/admin/SettingsTab";
 import { StylesTab } from "@/components/admin/StylesTab";
+import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { BulkEditDialog } from "@/components/admin/BulkEditDialog";
 import { NotificationsBtn } from "@/components/ui/NotificationsBtn";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
@@ -40,7 +41,8 @@ import {
   Settings,
   Palette,
   RefreshCw,
-  Repeat
+  Repeat,
+  BarChart3
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
@@ -280,6 +282,10 @@ const Admin = () => {
               <Palette className="mr-2 h-4 w-4" />
               Styles
             </TabsTrigger>
+            <TabsTrigger value="analytics" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Analytics
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -439,6 +445,10 @@ const Admin = () => {
 
         <TabsContent value="styles" className="p-0 m-0">
           <StylesTab />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="p-0 m-0">
+          <AnalyticsTab />
         </TabsContent>
       </Tabs>
 
