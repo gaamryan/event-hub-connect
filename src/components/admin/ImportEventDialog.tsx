@@ -8,7 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Calendar, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy, Tag } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy, Tag } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
@@ -698,17 +701,33 @@ full url to cover image: ${event.image_url || "TBD"}`;
                               <option value="biweekly">Biweekly</option>
                               <option value="monthly">Monthly</option>
                             </select>
-                            <Input
-                              type="date"
-                              className="h-7 text-xs flex-1"
-                              placeholder="Until"
-                              value={event.recurrence_until || ""}
-                              onChange={(e) => {
-                                setPreviewEvents((prev) => prev.map(ev =>
-                                  ev.id === event.id ? { ...ev, recurrence_until: e.target.value } : ev
-                                ));
-                              }}
-                            />
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "h-7 text-xs flex-1 justify-start text-left font-normal",
+                                    !event.recurrence_until && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-1 h-3 w-3" />
+                                  {event.recurrence_until ? format(new Date(event.recurrence_until), "PPP") : "Until"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={event.recurrence_until ? new Date(event.recurrence_until) : undefined}
+                                  onSelect={(date) => {
+                                    setPreviewEvents((prev) => prev.map(ev =>
+                                      ev.id === event.id ? { ...ev, recurrence_until: date ? format(date, "yyyy-MM-dd") : "" } : ev
+                                    ));
+                                  }}
+                                  initialFocus
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         )}
                       </div>
