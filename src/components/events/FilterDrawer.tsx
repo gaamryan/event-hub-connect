@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, startOfDay, endOfDay, endOfWeek, nextSaturday, nextSunday } from "date-fns";
-import { CalendarIcon, SlidersHorizontal, X } from "lucide-react";
+import { CalendarIcon, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -49,6 +49,10 @@ interface FilterDrawerProps {
   onFiltersChange: (filters: EventFilters) => void;
   activeFilterCount: number;
   categories: Category[];
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function FilterDrawer({ 
@@ -56,9 +60,20 @@ export function FilterDrawer({
   onFiltersChange, 
   activeFilterCount,
   categories,
+  searchQuery = "",
+  onSearchQueryChange,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: FilterDrawerProps) {
   const [localFilters, setLocalFilters] = useState<EventFilters>(filters);
-  const [open, setOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    setInternalOpen(v);
+    controlledOnOpenChange?.(v);
+  };
 
   const getThisWeekDates = () => {
     const now = new Date();
@@ -87,13 +102,16 @@ export function FilterDrawer({
 
   const handleApply = () => {
     onFiltersChange(localFilters);
+    onSearchQueryChange?.(localSearch);
     setOpen(false);
   };
 
   const handleReset = () => {
     const resetFilters: EventFilters = {};
     setLocalFilters(resetFilters);
+    setLocalSearch("");
     onFiltersChange(resetFilters);
+    onSearchQueryChange?.("");
   };
 
   const updateFilter = <K extends keyof EventFilters>(key: K, value: EventFilters[K]) => {
@@ -112,6 +130,7 @@ export function FilterDrawer({
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       setLocalFilters(filters);
+      setLocalSearch(searchQuery);
     }
     setOpen(isOpen);
   };
@@ -135,8 +154,8 @@ export function FilterDrawer({
         <div className="mx-auto w-full max-w-lg">
           <DrawerHeader className="pb-2">
             <DrawerTitle className="flex items-center justify-between">
-              <span>Filters</span>
-              {activeFilterCount > 0 && (
+              <span>Search & Filters</span>
+              {(activeFilterCount > 0 || localSearch) && (
                 <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
                   Clear all
                 </Button>
@@ -146,6 +165,31 @@ export function FilterDrawer({
 
           <ScrollArea className="h-[60vh] px-4">
             <div className="space-y-6 pb-4">
+              {/* Search */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search events..."
+                    value={localSearch}
+                    onChange={(e) => setLocalSearch(e.target.value)}
+                    className="pl-10"
+                    autoFocus
+                  />
+                  {localSearch && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setLocalSearch("")}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               {/* Quick Filters */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Quick Filters</Label>
@@ -334,7 +378,7 @@ export function FilterDrawer({
 
           <DrawerFooter className="pt-2">
             <Button onClick={handleApply} className="w-full">
-              Show Results
+              Search Now
             </Button>
             <DrawerClose asChild>
               <Button variant="outline" className="w-full">Cancel</Button>
