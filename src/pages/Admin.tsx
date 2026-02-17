@@ -36,13 +36,15 @@ import {
   Shield,
   Plus,
   Database,
-  Calendar,
+  Calendar as CalendarIcon,
   Settings,
   Palette,
   RefreshCw,
   Repeat
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 type StatusFilter = "pending" | "approved" | "rejected" | "draft" | undefined;
@@ -263,7 +265,7 @@ const Admin = () => {
         <div className="px-4 border-b border-border bg-background">
           <TabsList className="mb-[-1px] h-12 bg-transparent p-0">
             <TabsTrigger value="events" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
-              <Calendar className="mr-2 h-4 w-4" />
+              <CalendarIcon className="mr-2 h-4 w-4" />
               Events
             </TabsTrigger>
             <TabsTrigger value="sources" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
@@ -674,6 +676,35 @@ const Admin = () => {
                         <option value="biweekly">Biweekly</option>
                         <option value="monthly">Monthly</option>
                       </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Repeat Until</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !(editingEvent as any).recurrence_until && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {(editingEvent as any).recurrence_until
+                              ? format(new Date((editingEvent as any).recurrence_until), "PPP")
+                              : "Pick end date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={(editingEvent as any).recurrence_until ? new Date((editingEvent as any).recurrence_until) : undefined}
+                            onSelect={(date) => setEditingEvent({ ...editingEvent, recurrence_until: date ? date.toISOString() : null } as any)}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     {/* Edit all instances button */}
