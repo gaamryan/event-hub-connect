@@ -14,9 +14,23 @@ export function FeaturedEvents() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isDragging, setIsDragging] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const dragStartX = useRef(0);
   const scrollStartX = useRef(0);
   const hasDragged = useRef(false);
+
+  // Track active dot based on scroll position
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const cardWidth = 320 + 16; // w-80 + gap-4
+      const index = Math.round(container.scrollLeft / cardWidth);
+      setActiveIndex(index);
+    };
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [events]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -211,6 +225,27 @@ export function FeaturedEvents() {
             </motion.div>
           ))}
         </div>
+
+        {/* Dot indicators */}
+        {events.length > 1 && (
+          <div className="flex justify-center gap-1.5 pt-2">
+            {events.map((_, i) => (
+              <button
+                key={i}
+                className={`rounded-full transition-all duration-300 ${
+                  i === activeIndex
+                    ? "w-6 h-2 bg-primary"
+                    : "w-2 h-2 bg-primary/25"
+                }`}
+                onClick={() => {
+                  const cardWidth = 320 + 16;
+                  scrollRef.current?.scrollTo({ left: i * cardWidth, behavior: "smooth" });
+                }}
+                aria-label={`Go to event ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
