@@ -522,9 +522,23 @@ full url to cover image: ${event.image_url || "TBD"}`;
               {previewEvents.map((event, index) => (
                 <div key={event.id || index} className="relative group border rounded-lg p-3 hover:bg-muted/50 transition-colors">
                   <div className="flex gap-3">
-                    {/* Thumbnail */}
-                    <div className="w-24 h-24 shrink-0 bg-muted rounded overflow-hidden">
-                      <EventPreviewImage src={event.image_url} alt={event.title} />
+                    {/* Thumbnail + Image URL */}
+                    <div className="flex flex-col gap-1.5 w-24 shrink-0">
+                      <div className="w-24 h-24 bg-muted rounded overflow-hidden">
+                        <EventPreviewImage src={event.image_url} alt={event.title} />
+                      </div>
+                      <Input
+                        placeholder="Image URL"
+                        value={event.image_url || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPreviewEvents((prev) => prev.map(ev =>
+                            ev.id === event.id ? { ...ev, image_url: val || null } : ev
+                          ));
+                        }}
+                        className="h-6 text-[10px] px-1.5 w-full"
+                        title="Paste direct image URL"
+                      />
                     </div>
 
                     {/* Content */}
