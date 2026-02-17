@@ -513,11 +513,10 @@ const Admin = () => {
                     <label className="text-sm font-medium text-muted-foreground">Start Time</label>
                     <Input
                       type="datetime-local"
-                      value={editingEvent.start_time ? new Date(editingEvent.start_time).toISOString().slice(0, 16) : ''}
+                      value={editingEvent.start_time ? format(new Date(editingEvent.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
                       onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        if (!isNaN(date.getTime())) {
-                          setEditingEvent({ ...editingEvent, start_time: date.toISOString() });
+                        if (e.target.value) {
+                          setEditingEvent({ ...editingEvent, start_time: new Date(e.target.value).toISOString() });
                         }
                       }}
                     />
@@ -526,11 +525,10 @@ const Admin = () => {
                     <label className="text-sm font-medium text-muted-foreground">End Time</label>
                     <Input
                       type="datetime-local"
-                      value={editingEvent.end_time ? new Date(editingEvent.end_time).toISOString().slice(0, 16) : ''}
+                      value={editingEvent.end_time ? format(new Date(editingEvent.end_time), "yyyy-MM-dd'T'HH:mm") : ''}
                       onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        if (!isNaN(date.getTime())) {
-                          setEditingEvent({ ...editingEvent, end_time: date.toISOString() });
+                        if (e.target.value) {
+                          setEditingEvent({ ...editingEvent, end_time: new Date(e.target.value).toISOString() });
                         }
                       }}
                     />
