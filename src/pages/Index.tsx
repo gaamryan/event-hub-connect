@@ -12,14 +12,25 @@ import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 import { useApprovedEvents, Event } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
 import { useSettings } from "@/hooks/useSettings";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const Index = () => {
+  const isMobile = useIsMobile();
+  const [scrolled, setScrolled] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: settings } = useSettings();
   const PAGE_LIMIT = settings?.pagination_limit?.value || 20;
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isMobile]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EventFilters>({});
@@ -148,8 +159,17 @@ const Index = () => {
       />
 
       {/* Search & Filter Bar */}
-      <div className="sticky top-[73px] z-30 border-b border-border" style={{ background: 'var(--topbar-bg)', color: `hsl(var(--topbar-text))`, backdropFilter: 'blur(var(--topbar-blur))', WebkitBackdropFilter: 'blur(var(--topbar-blur))' }}>
-        <div className="px-4 py-3">
+      <div
+        className="sticky z-30 border-b border-border transition-all duration-200"
+        style={{
+          top: isMobile && scrolled ? '43px' : '73px',
+          background: 'var(--topbar-bg)',
+          color: `hsl(var(--topbar-text))`,
+          backdropFilter: 'blur(var(--topbar-blur))',
+          WebkitBackdropFilter: 'blur(var(--topbar-blur))',
+        }}
+      >
+        <div className={`px-4 transition-all duration-200 ${isMobile && scrolled ? 'py-1.5' : 'py-3'}`}>
           <div className="flex items-center gap-3">
             {/* Search Input with Filter Button Inside */}
             <div className="relative flex-1">
@@ -158,7 +178,7 @@ const Index = () => {
                 placeholder="Search events..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-12 h-11"
+                className={`pl-10 pr-12 transition-all duration-200 ${isMobile && scrolled ? 'h-9' : 'h-11'}`}
               />
               {searchQuery && (
                 <Button
