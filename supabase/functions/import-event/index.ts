@@ -115,9 +115,25 @@ serve(async (req) => {
                     // Markdown content for regex extraction
                     const content = jinaData.content || "";
 
-                    // Image: Look for !()[url]
-                    const imageMatch = content.match(/!\[.*?\]\((.*?)\)/);
-                    if (imageMatch && imageMatch[1]) eventData.image_url = imageMatch[1];
+                    // Image: Try multiple strategies for best cover image
+                    // 1. Look for og:image in raw content (most reliable for cover photos)
+                    const ogImageMatch = content.match(/og:image["\s]*content=["']([^"']+)["']/i);
+                    if (ogImageMatch && ogImageMatch[1]) {
+                        eventData.image_url = ogImageMatch[1];
+                    } else {
+                        // 2. Look for large/hero images in markdown (skip small icons/avatars)
+                        const allImages = [...content.matchAll(/!\[.*?\]\((.*?)\)/g)];
+                        // Prefer images with common cover photo patterns in URL
+                        const coverImage = allImages.find(m =>
+                            /header|hero|cover|banner|featured|event|poster|og[-_]?image/i.test(m[1])
+                        );
+                        if (coverImage) {
+                            eventData.image_url = coverImage[1];
+                        } else if (allImages.length > 0) {
+                            // Fallback to first image
+                            eventData.image_url = allImages[0][1];
+                        }
+                    }
 
                     // Facebook specific cleanup
                     if (eventData.source === "facebook" && eventData.title) {
