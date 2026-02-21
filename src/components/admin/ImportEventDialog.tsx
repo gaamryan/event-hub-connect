@@ -250,33 +250,11 @@ full url to cover image: ${event.image_url || "TBD"}`;
       let processedCount = 0;
       const totalEvents = previewEvents.length;
 
+      // Use the full image URL directly (no optimization/re-upload)
       const processImage = async (event: ScrapedEvent) => {
-        let finalImageUrl = event.image_url;
-        if (finalImageUrl && !finalImageUrl.includes("supabase.co")) {
-          try {
-            // Using a shorter timeout for the optimization call client-side to fail fast
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
-
-            const { data: uploadData, error: uploadError } = await supabase.functions.invoke('optimize-image', {
-              body: { imageUrl: finalImageUrl },
-              headers: { "x-client-timeout": "25000" } // Hint to server (optional)
-            });
-            clearTimeout(timeoutId);
-
-            if (!uploadError && uploadData?.url) {
-              finalImageUrl = uploadData.url;
-            } else {
-              console.warn(`Image optimization failed for "${event.title}":`, uploadError || uploadData?.error);
-              // Keep original URL but maybe flag it? 
-            }
-          } catch (imgErr) {
-            console.warn(`Image optimization crashed for "${event.title}":`, imgErr);
-          }
-        }
         processedCount++;
-        setLoadingMessage(`Importing ${processedCount}/${totalEvents}: Optimized images...`);
-        return { ...event, image_url: finalImageUrl };
+        setLoadingMessage(`Importing ${processedCount}/${totalEvents}...`);
+        return event;
       };
 
       // Helper for concurrency
