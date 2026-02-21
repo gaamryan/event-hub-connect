@@ -46,6 +46,16 @@ export interface StyleSettings {
     btnDestructiveText: string;
 }
 
+export interface FeedDisplaySettings {
+    mobileColumns: 1 | 2 | 3;
+    desktopColumns: 1 | 2 | 3;
+}
+
+export const DEFAULT_FEED_DISPLAY: FeedDisplaySettings = {
+    mobileColumns: 1,
+    desktopColumns: 2,
+};
+
 export interface Settings {
     pagination_limit?: { value: number };
     nav_visibility?: {
@@ -53,6 +63,7 @@ export interface Settings {
         admin: boolean;
     };
     import_template?: string;
+    feed_display?: FeedDisplaySettings;
     site_theme?: {
         colors: {
             primary: string;

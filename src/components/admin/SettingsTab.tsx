@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSettings, useUpdateSetting, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
 import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 
 const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
@@ -33,6 +34,8 @@ export function SettingsTab() {
     const [gaMeasurementId, setGaMeasurementId] = useState("");
     const [gaVerifyStatus, setGaVerifyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
     const [lookerStudioUrl, setLookerStudioUrl] = useState("");
+    const [mobileColumns, setMobileColumns] = useState<1 | 2 | 3>(DEFAULT_FEED_DISPLAY.mobileColumns);
+    const [desktopColumns, setDesktopColumns] = useState<1 | 2 | 3>(DEFAULT_FEED_DISPLAY.desktopColumns);
 
     useEffect(() => {
         if (settings?.pagination_limit?.value) {
@@ -50,6 +53,10 @@ export function SettingsTab() {
         }
         if (settings?.looker_studio_url) {
             setLookerStudioUrl(settings.looker_studio_url);
+        }
+        if (settings?.feed_display) {
+            setMobileColumns(settings.feed_display.mobileColumns ?? DEFAULT_FEED_DISPLAY.mobileColumns);
+            setDesktopColumns(settings.feed_display.desktopColumns ?? DEFAULT_FEED_DISPLAY.desktopColumns);
         }
     }, [settings]);
 
@@ -159,6 +166,55 @@ export function SettingsTab() {
                 <Button onClick={handleSaveTemplate} disabled={updateSetting.isPending}>
                     {updateSetting.isPending ? "Saving..." : "Save Template"}
                 </Button>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-medium">Feed Display</h3>
+                <p className="text-sm text-muted-foreground">
+                    Choose how many event cards to show per row on mobile and desktop.
+                </p>
+
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label>Mobile Columns</Label>
+                        <RadioGroup
+                            value={String(mobileColumns)}
+                            onValueChange={(v) => {
+                                const val = Number(v) as 1 | 2 | 3;
+                                setMobileColumns(val);
+                                updateSetting.mutate({ key: "feed_display", value: { mobileColumns: val, desktopColumns } });
+                            }}
+                            className="flex gap-4"
+                        >
+                            {[1, 2, 3].map((n) => (
+                                <div key={n} className="flex items-center gap-1.5">
+                                    <RadioGroupItem value={String(n)} id={`mobile-${n}`} />
+                                    <Label htmlFor={`mobile-${n}`} className="cursor-pointer">{n}</Label>
+                                </div>
+                            ))}
+                        </RadioGroup>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Desktop Columns</Label>
+                        <RadioGroup
+                            value={String(desktopColumns)}
+                            onValueChange={(v) => {
+                                const val = Number(v) as 1 | 2 | 3;
+                                setDesktopColumns(val);
+                                updateSetting.mutate({ key: "feed_display", value: { mobileColumns, desktopColumns: val } });
+                            }}
+                            className="flex gap-4"
+                        >
+                            {[1, 2, 3].map((n) => (
+                                <div key={n} className="flex items-center gap-1.5">
+                                    <RadioGroupItem value={String(n)} id={`desktop-${n}`} />
+                                    <Label htmlFor={`desktop-${n}`} className="cursor-pointer">{n}</Label>
+                                </div>
+                            ))}
+                        </RadioGroup>
+                    </div>
+                </div>
             </div>
 
             <div className="space-y-4">
