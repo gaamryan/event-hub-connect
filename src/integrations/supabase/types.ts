@@ -424,6 +424,7 @@ export type Database = {
         | "facebook"
         | "tixr"
         | "instagram"
+        | "startgg"
       event_status: "draft" | "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
@@ -561,6 +562,7 @@ export const Constants = {
         "facebook",
         "tixr",
         "instagram",
+        "startgg",
       ],
       event_status: ["draft", "pending", "approved", "rejected"],
     },

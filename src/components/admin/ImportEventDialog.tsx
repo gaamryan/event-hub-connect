@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Calendar as CalendarIcon, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy, Tag } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, AlertCircle, FileText, Globe, X, Layers, User, MapPin, Clock, Copy, Tag, Gamepad2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ interface ScrapedEvent {
   image_url: string | null;
   source_url: string;
   status: "draft" | "pending" | "approved" | "rejected";
-  source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook" | "instagram";
+  source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook" | "instagram" | "startgg";
   venue?: { name: string } | null;
   organizer?: string;
   location?: string;
@@ -59,6 +59,7 @@ interface ImportEventDialogProps {
 export function ImportEventDialog({ open, onOpenChange }: ImportEventDialogProps) {
   const [activeTab, setActiveTab] = useState("url");
   const [urlInput, setUrlInput] = useState("");
+  const [startggInput, setStartggInput] = useState("");
   const [textInput, setTextInput] = useState("");
   const [manualSource, setManualSource] = useState<ScrapedEvent["source"]>("manual");
 
@@ -92,10 +93,11 @@ Cover Image : please copy and paste the full url path to the cover image`;
     setIsLoading(true);
 
     try {
-      if (activeTab === "url") {
-        if (!urlInput.trim()) return;
+      if (activeTab === "url" || activeTab === "startgg") {
+        const rawInput = activeTab === "startgg" ? startggInput : urlInput;
+        if (!rawInput.trim()) return;
 
-        const urls = urlInput
+        const urls = rawInput
           .split("\n")
           .map((u) => u.trim())
           .filter((u) => u.length > 0);
@@ -118,13 +120,10 @@ Cover Image : please copy and paste the full url path to the cover image`;
             if (error) throw error;
 
             if (data) {
-              // Assign a temp ID for UI handling
               results.push({
                 ...data,
                 id: Math.random().toString(36).substring(2, 9),
-                // Default series events to "merge"
                 import_mode: data.is_series ? "merge" : undefined,
-                // Ensure default status is approved if not set by backend
                 status: "approved"
               });
               successCount++;
@@ -148,7 +147,7 @@ Cover Image : please copy and paste the full url path to the cover image`;
         if (!textInput) return;
         const parsed = parseEventText(textInput, manualSource);
         parsed.id = Math.random().toString(36).substring(2, 9);
-        parsed.status = "approved"; // Default to approved
+        parsed.status = "approved";
         setPreviewEvents([parsed]);
       }
     } catch (err: any) {
@@ -443,10 +442,14 @@ full url to cover image: ${event.image_url || "TBD"}`;
 
         {previewEvents.length === 0 ? (
           <Tabs defaultValue="url" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="url">
                 <Globe className="h-4 w-4 mr-2" />
                 From URLs
+              </TabsTrigger>
+              <TabsTrigger value="startgg">
+                <Gamepad2 className="h-4 w-4 mr-2" />
+                From start.gg
               </TabsTrigger>
               <TabsTrigger value="text">
                 <FileText className="h-4 w-4 mr-2" />
@@ -479,6 +482,31 @@ full url to cover image: ${event.image_url || "TBD"}`;
               </form>
             </TabsContent>
 
+            <TabsContent value="startgg">
+              <form onSubmit={handlePreview} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startgg-url">start.gg Tournament URLs (One per line)</Label>
+                  <Textarea
+                    id="startgg-url"
+                    placeholder="https://www.start.gg/tournament/my-tournament/details"
+                    value={startggInput}
+                    onChange={(e) => setStartggInput(e.target.value)}
+                    disabled={isLoading}
+                    className="min-h-[150px] font-mono text-xs leading-relaxed"
+                  />
+                </div>
+                {error && <ErrorMessage message={error} />}
+                <Button type="submit" className="w-full" disabled={isLoading || !startggInput.trim()}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {loadingMessage || "Processing..."}
+                    </>
+                  ) : "Scan Tournaments"}
+                </Button>
+              </form>
+            </TabsContent>
+
             <TabsContent value="text">
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -493,6 +521,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
                       <SelectItem value="meetup">Meetup</SelectItem>
                       <SelectItem value="ticketspice">TicketSpice</SelectItem>
                       <SelectItem value="eventbrite">Eventbrite</SelectItem>
+                      <SelectItem value="startgg">start.gg</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
