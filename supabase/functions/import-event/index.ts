@@ -111,19 +111,51 @@ serve(async (req) => {
 
                     const content = jinaData.content || "";
 
-                    // Image extraction
-                    const ogImageMatch = content.match(/og:image["\s]*content=["']([^"']+)["']/i);
-                    if (ogImageMatch && ogImageMatch[1]) {
-                        eventData.image_url = ogImageMatch[1];
-                    } else {
-                        const allImages = [...content.matchAll(/!\[.*?\]\((.*?)\)/g)];
-                        const coverImage = allImages.find(m =>
-                            /header|hero|cover|banner|featured|event|poster|og[-_]?image/i.test(m[1])
-                        );
-                        if (coverImage) {
-                            eventData.image_url = coverImage[1];
+                    // Image extraction — Instagram-specific: use absolute URL of first post image
+                    if (eventData.source === "instagram") {
+                        // For Instagram, extract all image URLs and pick the first full-size one
+                        // Instagram CDN images typically contain these patterns
+                        const allImages = [...content.matchAll(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/g)];
+                        // Filter to actual content images (skip tiny icons, profile pics, etc.)
+                        const postImages = allImages.filter(m => {
+                            const imgUrl = m[1];
+                            // Instagram CDN images are usually from scontent or fbcdn
+                            const isInstaCdn = /scontent|cdninstagram|fbcdn/i.test(imgUrl);
+                            // Skip small/icon images
+                            const isSmall = /s150x150|s320x320|s64x64|\/s\d{2,3}x/i.test(imgUrl);
+                            // Skip profile pictures
+                            const isProfile = /profile.pic|\/p\/\d+x\d+\//i.test(imgUrl);
+                            return (isInstaCdn && !isSmall && !isProfile) || /\.(jpg|jpeg|png|webp)/i.test(imgUrl);
+                        });
+
+                        if (postImages.length > 0) {
+                            // Use the first post image (first carousel image or single post image)
+                            eventData.image_url = postImages[0][1];
+                            console.log(`Instagram: Using absolute image URL: ${eventData.image_url}`);
                         } else if (allImages.length > 0) {
+                            // Fallback to first image found
                             eventData.image_url = allImages[0][1];
+                        }
+
+                        // Also try og:image as fallback
+                        if (!eventData.image_url) {
+                            const ogMatch = content.match(/og:image["\s]*content=["']([^"']+)["']/i);
+                            if (ogMatch?.[1]) eventData.image_url = ogMatch[1];
+                        }
+                    } else {
+                        const ogImageMatch = content.match(/og:image["\s]*content=["']([^"']+)["']/i);
+                        if (ogImageMatch && ogImageMatch[1]) {
+                            eventData.image_url = ogImageMatch[1];
+                        } else {
+                            const allImages = [...content.matchAll(/!\[.*?\]\((.*?)\)/g)];
+                            const coverImage = allImages.find(m =>
+                                /header|hero|cover|banner|featured|event|poster|og[-_]?image/i.test(m[1])
+                            );
+                            if (coverImage) {
+                                eventData.image_url = coverImage[1];
+                            } else if (allImages.length > 0) {
+                                eventData.image_url = allImages[0][1];
+                            }
                         }
                     }
 
