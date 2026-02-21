@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.optimize-image]
 verify_jwt = false
+
+[functions.import-event]
+verify_jwt = false

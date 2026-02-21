@@ -27,7 +27,7 @@ interface ScrapedEvent {
   image_url: string | null;
   source_url: string;
   status: "draft" | "pending" | "approved" | "rejected";
-  source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
+  source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook" | "instagram";
   venue?: { name: string } | null;
   organizer?: string;
   location?: string;
@@ -460,7 +460,7 @@ full url to cover image: ${event.image_url || "TBD"}`;
                   <Label htmlFor="url">Event URLs (One per line)</Label>
                   <Textarea
                     id="url"
-                    placeholder="https://eventbrite.com/e/...\nhttps://meetup.com/..."
+                    placeholder="https://eventbrite.com/e/...\nhttps://instagram.com/p/...\nhttps://meetup.com/..."
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     disabled={isLoading}
