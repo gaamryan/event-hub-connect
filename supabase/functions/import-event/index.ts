@@ -17,7 +17,7 @@ interface EventData {
     price_max: number | null;
     is_free: boolean | null;
     status: "draft" | "pending" | "approved" | "rejected";
-    source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook" | "instagram";
+    source: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook" | "instagram" | "startgg";
     source_url: string;
     is_series: boolean;
     dates: string[];
@@ -60,12 +60,13 @@ serve(async (req) => {
         else if (url.includes("facebook.com")) eventData.source = "facebook";
         else if (url.includes("ticketspice.com")) eventData.source = "ticketspice";
         else if (url.includes("instagram.com")) eventData.source = "instagram";
+        else if (url.includes("start.gg")) eventData.source = "startgg";
 
         let parsingSuccessful = false;
 
         // Strategy 1: Direct Fetch (Best for JSON-LD and Meta Tags)
         // Facebook and Instagram block bots, so skip direct fetch for them
-        if (eventData.source !== "facebook" && eventData.source !== "instagram") {
+        if (eventData.source !== "facebook" && eventData.source !== "instagram" && eventData.source !== "startgg") {
             try {
                 console.log("Attempting direct fetch...");
                 const response = await fetch(url, {
@@ -173,7 +174,7 @@ serve(async (req) => {
                     if (eventData.source === "instagram" && content) {
                         console.log("Instagram detected — sending content to AI for extraction...");
                         try {
-                            const aiParsed = await extractEventWithAI(content, url);
+                            const aiParsed = await extractEventWithAI(content, url, "instagram");
                             if (aiParsed) {
                                 // Merge AI fields, preferring AI results but keeping image from Jina
                                 const jinaImage = eventData.image_url;
@@ -190,11 +191,35 @@ serve(async (req) => {
                             console.warn("AI extraction failed, using Jina data as fallback:", aiErr);
                         }
                     }
-                }
-            } else {
-                console.error("Jina fetch failed:", await response.text());
-            }
-        }
+
+                    // Strategy 3b: AI extraction for start.gg tournaments
+                    if (eventData.source === "startgg" && content) {
+                        console.log("start.gg detected — sending content to AI for extraction...");
+                        try {
+                            const aiParsed = await extractEventWithAI(content, url, "startgg");
+                            if (aiParsed) {
+                                const jinaImage = eventData.image_url;
+                                eventData = { ...eventData, ...aiParsed };
+                                if (!eventData.image_url && jinaImage) {
+                                    eventData.image_url = jinaImage;
+                                }
+                                console.log("AI extraction successful for start.gg");
+                            }
+                            // Use source URL as ticket URL for registration
+                            eventData.ticket_url = url;
+                        } catch (aiErr) {
+                            console.warn("AI extraction failed for start.gg, using Jina data as fallback:", aiErr);
+                        }
+
+                        // Extract start.gg cover image from content if not already found
+                        if (!eventData.image_url) {
+                            const startggImageMatch = content.match(/(https:\/\/images\.start\.gg\/images\/[^\s)]+)/i);
+                            if (startggImageMatch) {
+                                eventData.image_url = startggImageMatch[1];
+                                console.log(`start.gg: Found cover image: ${eventData.image_url}`);
+                            }
+                        }
+                    }
 
         if (!eventData.title) {
             eventData.title = "New Event (Import Failed)";
@@ -213,38 +238,53 @@ serve(async (req) => {
     }
 });
 
-// ─── AI Extraction for Instagram ───────────────────────────────────────────────
+// ─── AI Extraction for Instagram & start.gg ───────────────────────────────────
 
-async function extractEventWithAI(content: string, sourceUrl: string): Promise<Partial<EventData> | null> {
+async function extractEventWithAI(content: string, sourceUrl: string, platform: "instagram" | "startgg" = "instagram"): Promise<Partial<EventData> | null> {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
         console.error("LOVABLE_API_KEY not configured, skipping AI extraction");
         return null;
     }
 
-    // Truncate content to avoid token limits
-    const truncatedContent = content.substring(0, 8000);
+    // Truncate content to avoid token limits (larger for start.gg which has more data)
+    const truncatedContent = content.substring(0, platform === "startgg" ? 12000 : 8000);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an expert at extracting event information from Instagram posts. Extract structured event details from the provided post content. Today's date is ${new Date().toISOString().split('T')[0]}.
+    const systemPrompt = platform === "startgg"
+        ? `You are an expert at extracting tournament/event information from start.gg tournament pages. Today's date is ${new Date().toISOString().split('T')[0]}.
+
+start.gg is a gaming tournament platform. Tournament pages contain tournament name, date ranges, full street addresses, descriptions with schedules and entry fees, cover images, and sub-events (game brackets).
+
+Parse date ranges carefully. "Aug 14th -- 16th, 2026" means start Aug 14 end Aug 16. Extract entry/venue fees as pricing. Clean up descriptions - remove attendee lists and navigation but keep schedule, rules, and key details. List sub-events/games in the description.
+
+Return ONLY valid JSON, no markdown, no code fences.`
+        : `You are an expert at extracting event information from Instagram posts. Extract structured event details from the provided post content. Today's date is ${new Date().toISOString().split('T')[0]}.
 
 When dates are relative (e.g. "this Friday", "tomorrow"), resolve them relative to today's date. If no year is specified, assume the nearest upcoming occurrence.
 
-Return ONLY valid JSON, no markdown, no code fences.`
-                },
-                {
-                    role: "user",
-                    content: `Extract event details from this Instagram post content. Return a JSON object with these fields (use null for any field you cannot determine):
+Return ONLY valid JSON, no markdown, no code fences.`;
+
+    const userPrompt = platform === "startgg"
+        ? `Extract tournament details from this start.gg page. Return JSON with these fields (use null if unknown):
+
+{
+  "title": "tournament name",
+  "description": "tournament description with schedule and key details",
+  "start_time": "ISO 8601 datetime",
+  "end_time": "ISO 8601 datetime or null",
+  "location": "venue name",
+  "address": "full street address (street, city, state, zip)",
+  "organizer": "tournament organizer name",
+  "ticket_url": "registration URL if found",
+  "price_min": number or null,
+  "price_max": number or null,
+  "is_free": boolean,
+  "image_url": "cover/banner image URL (prefer images.start.gg URLs)"
+}
+
+start.gg page content:
+${truncatedContent}`
+        : `Extract event details from this Instagram post content. Return a JSON object with these fields (use null for any field you cannot determine):
 
 {
   "title": "event name/title",
@@ -261,29 +301,43 @@ Return ONLY valid JSON, no markdown, no code fences.`
 }
 
 Instagram post content:
-${truncatedContent}`
-                }
+${truncatedContent}`;
+
+${truncatedContent}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
             ],
             tools: [
                 {
                     type: "function",
                     function: {
                         name: "extract_event",
-                        description: "Extract structured event data from an Instagram post",
+                        description: `Extract structured event data from a ${platform === "startgg" ? "start.gg tournament page" : "social media post"}`,
                         parameters: {
                             type: "object",
                             properties: {
-                                title: { type: "string", description: "Event name/title" },
-                                description: { type: "string", description: "Event description, cleaned up without hashtags" },
+                                title: { type: "string", description: "Event/tournament name" },
+                                description: { type: "string", description: "Event description with key details" },
                                 start_time: { type: "string", description: "ISO 8601 datetime for event start" },
                                 end_time: { type: "string", description: "ISO 8601 datetime for event end, or null" },
                                 location: { type: "string", description: "Venue or location name" },
                                 address: { type: "string", description: "Full street address" },
                                 organizer: { type: "string", description: "Host or organizer name" },
-                                ticket_url: { type: "string", description: "URL for tickets" },
-                                price_min: { type: "number", description: "Minimum price" },
-                                price_max: { type: "number", description: "Maximum price" },
-                                is_free: { type: "boolean", description: "Whether the event is free" }
+                                ticket_url: { type: "string", description: "URL for tickets/registration" },
+                                price_min: { type: "number", description: "Minimum price/entry fee" },
+                                price_max: { type: "number", description: "Maximum price/entry fee" },
+                                is_free: { type: "boolean", description: "Whether the event is free" },
+                                image_url: { type: "string", description: "Cover/banner image URL" }
                             },
                             required: ["title"],
                             additionalProperties: false
@@ -323,6 +377,7 @@ ${truncatedContent}`
             if (parsed.price_min !== undefined && parsed.price_min !== null) eventFields.price_min = parsed.price_min;
             if (parsed.price_max !== undefined && parsed.price_max !== null) eventFields.price_max = parsed.price_max;
             if (parsed.is_free !== undefined) eventFields.is_free = parsed.is_free;
+            if (parsed.image_url) eventFields.image_url = parsed.image_url;
 
             // Generate Google Maps link
             if (parsed.address || parsed.location) {
