@@ -43,7 +43,8 @@ export function EventCard({
   onClick,
 }: EventCardProps) {
   const navigate = useNavigate();
-  const formattedDate = format(new Date(startTime), "EEE, MMM d • h:mm a");
+  const formattedDate = format(new Date(startTime), "EEE, MMM d");
+  const formattedTime = format(new Date(startTime), "h:mm a");
 
   const getPriceDisplay = () => {
     if (isFree) return "Free";
@@ -118,13 +119,13 @@ export function EventCard({
 
       {/* Content */}
       <div className="p-4 space-y-2">
-        {/* Category & Date */}
-        <div className="flex items-center gap-2 text-sm">
+        {/* Category, Date & Time */}
+        <div className="flex flex-col gap-1 text-sm">
           {categories && categories.length > 0 && (() => {
             const primaryCategory = categories[0];
             return (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium self-start"
                 style={{
                   backgroundColor: primaryCategory.color ? `${primaryCategory.color}20` : undefined,
                   color: primaryCategory.color || undefined,
@@ -136,8 +137,11 @@ export function EventCard({
               </span>
             );
           })()}
-          <span className="text-muted-foreground">•</span>
-          <span className="text-muted-foreground">{formattedDate}</span>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>{formattedDate}</span>
+          </div>
+          <span className="text-muted-foreground text-xs ml-5">{formattedTime}</span>
         </div>
 
         {/* Title */}
