@@ -11,7 +11,7 @@ import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawe
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 import { useApprovedEvents, Event } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
-import { useSettings } from "@/hooks/useSettings";
+import { useSettings, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,9 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: settings } = useSettings();
   const PAGE_LIMIT = settings?.pagination_limit?.value || 20;
+  const feedDisplay = settings?.feed_display ?? DEFAULT_FEED_DISPLAY;
+  const mobileColsClass = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" }[feedDisplay.mobileColumns];
+  const desktopColsClass = { 1: "md:grid-cols-1", 2: "md:grid-cols-2", 3: "md:grid-cols-3" }[feedDisplay.desktopColumns];
 
   useEffect(() => {
     if (!isMobile) return;
@@ -247,7 +250,7 @@ const Index = () => {
       <FeaturedEvents />
 
       {/* Event List */}
-      <div className="p-4 space-y-4">
+      <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
         {eventsLoading && page === 0 ? (
           <EventListSkeleton count={4} />
         ) : filteredEvents && filteredEvents.length > 0 ? (
