@@ -184,6 +184,8 @@ serve(async (req) => {
                                 }
                                 console.log("AI extraction successful for Instagram");
                             }
+                            // For Instagram, use the source URL as the ticket URL
+                            eventData.ticket_url = url;
                         } catch (aiErr) {
                             console.warn("AI extraction failed, using Jina data as fallback:", aiErr);
                         }
