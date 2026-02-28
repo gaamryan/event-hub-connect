@@ -220,6 +220,9 @@ serve(async (req) => {
                             }
                         }
                     }
+                }
+            }
+        }
 
         if (!eventData.title) {
             eventData.title = "New Event (Import Failed)";
