@@ -33,7 +33,13 @@ serve(async (req) => {
                 redirect: "follow",
             });
 
-            if (!response.ok) throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+                // If we can't fetch the image (e.g. Facebook CDN blocks), return the original URL
+                console.warn(`Failed to fetch image (${response.status}), returning original URL`);
+                return new Response(JSON.stringify({ url: imageUrl, fallback: true }), {
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
 
             const fetchedContentType = response.headers.get("content-type");
             console.log(`Fetched content type: ${fetchedContentType}`);
