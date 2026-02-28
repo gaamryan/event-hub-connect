@@ -600,12 +600,21 @@ full url to cover image: ${event.image_url || "TBD"}`;
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium text-sm truncate max-w-[200px]" title={event.title}>{event.title}</h4>
                           {event.is_series && (
                             <span className="flex items-center gap-1 text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full font-medium">
                               <Layers className="w-3 h-3" />
                               Series
+                            </span>
+                          )}
+                          {event._warning && (
+                            <span
+                              className="flex items-center gap-1 text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full font-medium cursor-help"
+                              title={event._warning}
+                            >
+                              <AlertCircle className="w-3 h-3" />
+                              Issues
                             </span>
                           )}
                         </div>
