@@ -369,6 +369,27 @@ full url to cover image: ${event.image_url || "TBD"}`;
         }
       }
 
+      // Auto-optimize images: re-upload external URLs to our storage
+      toast.info("Optimizing images...");
+      for (const evt of eventsToInsert) {
+        if (evt.image_url && !evt.image_url.includes("event-images")) {
+          try {
+            const { data: optimized, error: optErr } = await supabase.functions.invoke("optimize-image", {
+              body: JSON.stringify({ imageUrl: evt.image_url }),
+              headers: { "Content-Type": "application/json" },
+            });
+            if (!optErr && optimized?.url) {
+              evt.image_url = optimized.url;
+              evt.image_optimized = true;
+            } else {
+              console.warn("Image optimization failed for", evt.image_url, optErr);
+            }
+          } catch (e) {
+            console.warn("Image optimization error, keeping original URL:", e);
+          }
+        }
+      }
+
       const { data: insertedEvents, error } = await supabase.from("events").insert(eventsToInsert).select("id");
 
       if (error) throw error;
