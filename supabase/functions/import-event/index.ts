@@ -224,9 +224,79 @@ serve(async (req) => {
             }
         }
 
-        if (!eventData.title) {
+        // ─── Payload Validation ────────────────────────────────────────────
+        const warnings: string[] = [];
+
+        if (!eventData.title || eventData.title.trim().length === 0) {
             eventData.title = "New Event (Import Failed)";
-            eventData.description = "Could not verify details from URL. Please enter manually.";
+            warnings.push("Title could not be extracted");
+        }
+
+        if (!eventData.description || eventData.description.trim().length === 0) {
+            warnings.push("Description is missing");
+        }
+
+        // Validate start_time is a real date
+        if (!eventData.start_time || isNaN(Date.parse(eventData.start_time))) {
+            eventData.start_time = new Date().toISOString();
+            warnings.push("Start time could not be parsed, defaulting to now");
+        }
+
+        // Validate end_time if present
+        if (eventData.end_time && isNaN(Date.parse(eventData.end_time))) {
+            eventData.end_time = null;
+            warnings.push("End time was invalid, removed");
+        }
+
+        // Validate image_url is a proper URL
+        if (eventData.image_url) {
+            try {
+                new URL(eventData.image_url);
+            } catch {
+                eventData.image_url = null;
+                warnings.push("Image URL was malformed, removed");
+            }
+        }
+
+        // Validate ticket_url if present
+        if (eventData.ticket_url) {
+            try {
+                new URL(eventData.ticket_url);
+            } catch {
+                eventData.ticket_url = null;
+                warnings.push("Ticket URL was malformed, removed");
+            }
+        }
+
+        // Validate prices are non-negative numbers
+        if (eventData.price_min !== null && eventData.price_min !== undefined) {
+            eventData.price_min = Number(eventData.price_min);
+            if (isNaN(eventData.price_min) || eventData.price_min < 0) {
+                eventData.price_min = null;
+                warnings.push("Invalid price_min, removed");
+            }
+        }
+        if (eventData.price_max !== null && eventData.price_max !== undefined) {
+            eventData.price_max = Number(eventData.price_max);
+            if (isNaN(eventData.price_max) || eventData.price_max < 0) {
+                eventData.price_max = null;
+                warnings.push("Invalid price_max, removed");
+            }
+        }
+
+        // Sanitize title/description length
+        if (eventData.title && eventData.title.length > 500) {
+            eventData.title = eventData.title.substring(0, 500);
+            warnings.push("Title was truncated to 500 chars");
+        }
+        if (eventData.description && eventData.description.length > 10000) {
+            eventData.description = eventData.description.substring(0, 10000);
+            warnings.push("Description was truncated to 10000 chars");
+        }
+
+        if (warnings.length > 0) {
+            console.warn("Import validation warnings:", warnings);
+            (eventData as any)._warnings = warnings;
         }
 
         return new Response(JSON.stringify(eventData), {
