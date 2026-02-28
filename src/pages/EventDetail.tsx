@@ -23,6 +23,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSingleEvent } from "@/hooks/useSingleEvent";
 import { useIsAdmin } from "@/hooks/useAuth";
 
+const ensureUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.length < 4) return null;
+  // Filter out obviously invalid URLs (sentences, etc.)
+  if (trimmed.includes(' ') && !trimmed.startsWith('http')) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  return `https://${trimmed}`;
+};
+
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -151,11 +161,15 @@ const EventDetail = () => {
           >
             {/* Hero Image */}
             <div className="relative aspect-[16/10] bg-muted">
-              {event.image_url ? (
+                {event.image_url ? (
                 <img
                   src={event.image_url}
                   alt={event.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement?.classList.add('bg-gradient-primary', 'opacity-30');
+                  }}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-primary opacity-30" />
@@ -303,9 +317,9 @@ const EventDetail = () => {
               )}
 
               {/* Source */}
-              {event.source_url && (
+              {ensureUrl(event.source_url) && (
                 <a
-                  href={event.source_url}
+                  href={ensureUrl(event.source_url)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
@@ -320,38 +334,33 @@ const EventDetail = () => {
       </div>
 
       {/* Fixed Bottom CTA */}
-      {event && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
-          <div className="flex gap-3">
-            {event.ticket_url ? (
-              <Button
-                className="flex-1 h-12 text-base gap-2"
-                asChild
-              >
-                <a href={event.ticket_url} target="_blank" rel="noopener noreferrer">
+      {event && (() => {
+        const ticketLink = ensureUrl(event.ticket_url);
+        const sourceLink = ensureUrl(event.source_url);
+        const ctaUrl = ticketLink || sourceLink;
+        const ctaLabel = ticketLink ? "Get Tickets" : "Visit Original Listing";
+        const CtaIcon = ticketLink ? Ticket : ExternalLink;
+
+        return (
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
+            <div className="flex gap-3">
+              {ctaUrl ? (
+                <Button className="flex-1 h-12 text-base gap-2" asChild>
+                  <a href={ctaUrl} target="_blank" rel="noopener noreferrer">
+                    <CtaIcon className="h-5 w-5" />
+                    {ctaLabel}
+                  </a>
+                </Button>
+              ) : (
+                <Button className="flex-1 h-12 text-base gap-2" disabled>
                   <Ticket className="h-5 w-5" />
-                  Get Tickets
-                </a>
-              </Button>
-            ) : event.source_url ? (
-              <Button
-                className="flex-1 h-12 text-base gap-2"
-                asChild
-              >
-                <a href={event.source_url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-5 w-5" />
-                  View Event
-                </a>
-              </Button>
-            ) : (
-              <Button className="flex-1 h-12 text-base gap-2" disabled>
-                <Ticket className="h-5 w-5" />
-                No tickets available
-              </Button>
-            )}
+                  No link available
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </AppLayout>
   );
 };

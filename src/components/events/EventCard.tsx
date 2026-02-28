@@ -81,6 +81,11 @@ export function EventCard({
             alt={title}
             className="w-full h-full object-cover"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.parentElement?.classList.add('bg-gradient-primary');
+              e.currentTarget.parentElement?.style.setProperty('opacity', '0.2');
+            }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-primary opacity-20" />
