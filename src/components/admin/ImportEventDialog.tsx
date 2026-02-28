@@ -120,8 +120,13 @@ Cover Image : please copy and paste the full url path to the cover image`;
             if (error) throw error;
 
             if (data) {
+              // Show server-side validation warnings if any
+              if (data._warnings && data._warnings.length > 0) {
+                toast.warning(`${new URL(url).hostname}: ${data._warnings.join(", ")}`);
+              }
               results.push({
                 ...data,
+                _warning: data._warnings?.join("; ") || undefined,
                 id: Math.random().toString(36).substring(2, 9),
                 import_mode: data.is_series ? "merge" : undefined,
                 status: "approved"
@@ -238,6 +243,17 @@ full url to cover image: ${event.image_url || "TBD"}`;
 
   const handleImport = async () => {
     if (previewEvents.length === 0) return;
+
+    // Client-side validation before saving
+    const invalid = previewEvents.filter(e =>
+      !e.title?.trim() || e.title === "New Event (Import Failed)" ||
+      !e.start_time || isNaN(Date.parse(e.start_time))
+    );
+    if (invalid.length > 0) {
+      toast.error(`${invalid.length} event(s) have missing title or invalid date. Please fix before importing.`);
+      return;
+    }
+
     setIsLoading(true);
     setLoadingMessage("Importing events...");
 
