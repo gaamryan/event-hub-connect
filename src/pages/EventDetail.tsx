@@ -158,20 +158,13 @@ const EventDetail = () => {
             transition={{ duration: 0.3 }}
           >
             {/* Hero Image */}
-            <div className="relative aspect-[16/10] bg-muted">
-                {event.image_url ? (
-                <img
-                  src={event.image_url}
-                  alt={event.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement?.classList.add('bg-gradient-primary', 'opacity-30');
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-primary opacity-30" />
-              )}
+            <div className="relative aspect-[16/10]">
+              <LazyImage
+                src={event.image_url}
+                alt={event.title}
+                className="w-full h-full"
+                fallback={<div className="w-full h-full bg-gradient-primary opacity-30" />}
+              />
               {/* Price Badge */}
               {getPriceDisplay() && (
                 <div className="absolute bottom-4 left-4 px-4 py-2 rounded-full bg-card/90 backdrop-blur-sm text-lg font-bold">
