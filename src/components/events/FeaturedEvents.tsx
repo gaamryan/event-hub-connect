@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useFeaturedEvents } from "@/hooks/useEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { LazyImage } from "@/components/ui/LazyImage";
 
 export function FeaturedEvents() {
   const { data: events, isLoading } = useFeaturedEvents();
