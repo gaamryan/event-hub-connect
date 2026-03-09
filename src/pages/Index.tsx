@@ -252,6 +252,9 @@ const Index = () => {
         </AnimatePresence>
       </div>
 
+      {/* Happening Now */}
+      <HappeningNow />
+
       {/* Featured Events Section */}
       <FeaturedEvents />
 
