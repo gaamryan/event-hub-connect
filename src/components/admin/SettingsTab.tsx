@@ -6,7 +6,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettings, useUpdateSetting, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
-import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, ImageIcon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
 Event Name
