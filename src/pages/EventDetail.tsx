@@ -40,18 +40,13 @@ const EventDetail = () => {
   const { isAdmin } = useIsAdmin();
   const { data: event, isLoading, error } = useSingleEvent(id);
 
-  const handleShare = async () => {
-    if (navigator.share && event) {
-      try {
-        await navigator.share({
-          title: event.title,
-          text: event.description || `Check out ${event.title}`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        // User cancelled or share failed
-      }
-    }
+  const handleShare = () => {
+    if (!event) return;
+    shareEvent({
+      title: event.title,
+      description: event.description,
+      url: window.location.href,
+    });
   };
 
   const getFullAddress = () => {
