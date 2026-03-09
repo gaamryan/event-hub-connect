@@ -330,6 +330,17 @@ const EventDetail = () => {
         ) : null}
       </div>
 
+      {/* Similar Events */}
+      {event && (
+        <div className="pb-20">
+          <SimilarEvents
+            eventId={event.id}
+            categoryIds={event.event_categories?.map(ec => ec.category.id) || []}
+            venueId={(event.venue as any)?.id}
+          />
+        </div>
+      )}
+
       {/* Fixed Bottom CTA */}
       {event && (() => {
         const ticketLink = ensureUrl(event.ticket_url);
