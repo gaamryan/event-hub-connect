@@ -176,9 +176,13 @@ export function FilterDrawer({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search events..."
+                    placeholder="Search events or venues..."
                     value={localSearch}
-                    onChange={(e) => setLocalSearch(e.target.value)}
+                    onChange={(e) => {
+                      setLocalSearch(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
                     className="pl-10"
                     autoFocus
                   />
@@ -187,12 +191,76 @@ export function FilterDrawer({
                       variant="ghost"
                       size="icon"
                       className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setLocalSearch("")}
+                      onClick={() => { setLocalSearch(""); setShowSuggestions(false); }}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
+
+                {/* Autocomplete Suggestions */}
+                {showSuggestions && localSearch.length >= 2 && (
+                  <div className="rounded-lg border border-border bg-popover shadow-md overflow-hidden">
+                    {suggestionsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : suggestions && suggestions.length > 0 ? (
+                      <>
+                        {suggestions.filter(s => s.type === "event").length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Events</div>
+                            {suggestions.filter(s => s.type === "event").map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2.5 hover:bg-accent transition-colors flex items-start gap-2"
+                                onClick={() => {
+                                  setShowSuggestions(false);
+                                  setOpen(false);
+                                  navigate(`/event/${s.id}`);
+                                }}
+                              >
+                                <Search className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium truncate">{s.label}</div>
+                                  {s.subtitle && <div className="text-xs text-muted-foreground truncate">{s.subtitle}</div>}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {suggestions.filter(s => s.type === "venue").length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Venues</div>
+                            {suggestions.filter(s => s.type === "venue").map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2.5 hover:bg-accent transition-colors flex items-start gap-2"
+                                onClick={() => {
+                                  setLocalSearch("");
+                                  updateFilter("location", s.label);
+                                  setShowSuggestions(false);
+                                }}
+                              >
+                                <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium truncate">{s.label}</div>
+                                  {s.subtitle && <div className="text-xs text-muted-foreground truncate">{s.subtitle}</div>}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                        No suggestions found
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Quick Filters */}
