@@ -221,6 +221,15 @@ const Index = () => {
               </div>
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
+            <Button
+              variant={viewMode === "map" ? "default" : "outline"}
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setViewMode(v => v === "list" ? "map" : "list")}
+              aria-label={viewMode === "list" ? "Switch to map view" : "Switch to list view"}
+            >
+              {viewMode === "list" ? <Map className="h-4 w-4" /> : <List className="h-4 w-4" />}
+            </Button>
           </div>
         </div>
 
