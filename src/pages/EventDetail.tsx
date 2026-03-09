@@ -24,6 +24,7 @@ import { useSingleEvent } from "@/hooks/useSingleEvent";
 import { useIsAdmin } from "@/hooks/useAuth";
 import { shareEvent } from "@/lib/share";
 import { SimilarEvents } from "@/components/events/SimilarEvents";
+import { LazyImage } from "@/components/ui/LazyImage";
 
 const ensureUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
