@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Bookmark, BookmarkCheck, Repeat } from "lucide-react";
+import { Calendar, MapPin, Bookmark, BookmarkCheck, Repeat, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { shareEvent } from "@/lib/share";
 
 interface EventCardProps {
   id: string;
