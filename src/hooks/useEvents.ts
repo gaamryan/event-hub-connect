@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { EventFilters } from "@/components/events/FilterDrawer";
 import type { SortOption } from "@/components/events/SortSelect";
@@ -70,97 +70,120 @@ export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
   return useQuery({
     queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy, page, limit],
     queryFn: async () => {
-      // Use !inner join when filtering by category so only matching events are returned
-      const selectQuery = hasCategoryFilter
-        ? `*, venue:venues(*), host:hosts(*), event_categories!inner(category:categories(*))`
-        : `*, venue:venues(*), host:hosts(*), event_categories(category:categories(*))`;
+      const result = await fetchApprovedEvents({ categoryId, categoryIds, filters, sortBy, page, limit });
+      return result;
+    },
+  });
+}
 
-      let query = supabase
-        .from("events")
-        .select(selectQuery, { count: 'exact' })
-        .eq("status", "approved");
+async function fetchApprovedEvents({
+  categoryId,
+  categoryIds,
+  filters,
+  sortBy = "date_asc",
+  page = 0,
+  limit = 20,
+}: {
+  categoryId?: string | null;
+  categoryIds?: string[];
+  filters?: EventFilters;
+  sortBy?: SortOption;
+  page?: number;
+  limit?: number;
+}) {
+  const hasCategoryFilter = !!(categoryId || (categoryIds && categoryIds.length > 0));
 
-      // Apply Pagination
-      const from = page * limit;
-      const to = from + limit - 1;
-      query = query.range(from, to);
+  const selectQuery = hasCategoryFilter
+    ? `*, venue:venues(*), host:hosts(*), event_categories!inner(category:categories(*))`
+    : `*, venue:venues(*), host:hosts(*), event_categories(category:categories(*))`;
 
-      // Category filter (single)
-      if (categoryId) {
-        query = query.eq("event_categories.category_id", categoryId);
+  let query = supabase
+    .from("events")
+    .select(selectQuery, { count: 'exact' })
+    .eq("status", "approved");
+
+  // Apply Pagination
+  const from = page * limit;
+  const to = from + limit - 1;
+  query = query.range(from, to);
+
+  if (categoryId) {
+    query = query.eq("event_categories.category_id", categoryId);
+  }
+  if (categoryIds && categoryIds.length > 0) {
+    query = query.in("event_categories.category_id", categoryIds);
+  }
+
+  if (filters?.dateFrom) {
+    query = query.gte("start_time", filters.dateFrom.toISOString());
+  } else {
+    query = query.gte("start_time", startOfDay(new Date()).toISOString());
+  }
+  if (filters?.dateTo) {
+    const endOfDay = new Date(filters.dateTo);
+    endOfDay.setHours(23, 59, 59, 999);
+    query = query.lte("start_time", endOfDay.toISOString());
+  }
+
+  if (filters?.isFree) {
+    query = query.eq("is_free", true);
+  }
+  if (!filters?.isFree) {
+    if (filters?.priceMin !== undefined && filters.priceMin > 0) {
+      query = query.gte("price_min", filters.priceMin);
+    }
+    if (filters?.priceMax !== undefined && filters.priceMax < 200) {
+      query = query.lte("price_max", filters.priceMax);
+    }
+  }
+
+  switch (sortBy) {
+    case "date_asc":
+      query = query.order("start_time", { ascending: true });
+      break;
+    case "date_desc":
+      query = query.order("start_time", { ascending: false });
+      break;
+    case "price_low":
+      query = query.order("price_min", { ascending: true, nullsFirst: false });
+      break;
+    case "price_high":
+      query = query.order("price_max", { ascending: false, nullsFirst: false });
+      break;
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  let filteredData = data as any[];
+
+  if (filters?.location) {
+    const locationLower = filters.location.toLowerCase();
+    filteredData = filteredData.filter(
+      (event) =>
+        event.venue?.name?.toLowerCase().includes(locationLower) ||
+        event.venue?.city?.toLowerCase().includes(locationLower)
+    );
+  }
+
+  return { data: filteredData as Event[], count };
+}
+
+export function useInfiniteApprovedEvents(options: Omit<UseApprovedEventsOptions, 'page'> = {}) {
+  const { categoryId, categoryIds, filters, sortBy = "date_asc", limit = 20 } = options;
+
+  return useInfiniteQuery({
+    queryKey: ["events", "approved", "infinite", categoryId, categoryIds, filters, sortBy, limit],
+    queryFn: async ({ pageParam = 0 }) => {
+      return fetchApprovedEvents({ categoryId, categoryIds, filters, sortBy, page: pageParam, limit });
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, p) => sum + p.data.length, 0);
+      if (lastPage.count && totalLoaded < lastPage.count) {
+        return allPages.length;
       }
-
-      // Category filter (multiple)
-      if (categoryIds && categoryIds.length > 0) {
-        query = query.in("event_categories.category_id", categoryIds);
-      }
-
-      // Date range filter
-      if (filters?.dateFrom) {
-        query = query.gte("start_time", filters.dateFrom.toISOString());
-      } else {
-        // Default to showing events from start of today
-        query = query.gte("start_time", startOfDay(new Date()).toISOString());
-      }
-      if (filters?.dateTo) {
-        // Set to end of day
-        const endOfDay = new Date(filters.dateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        query = query.lte("start_time", endOfDay.toISOString());
-      }
-
-      // Free events filter
-      if (filters?.isFree) {
-        query = query.eq("is_free", true);
-      }
-
-      // Price range filter (only if not filtering by free)
-      if (!filters?.isFree) {
-        if (filters?.priceMin !== undefined && filters.priceMin > 0) {
-          query = query.gte("price_min", filters.priceMin);
-        }
-        if (filters?.priceMax !== undefined && filters.priceMax < 200) {
-          query = query.lte("price_max", filters.priceMax);
-        }
-      }
-
-      // Sorting
-      switch (sortBy) {
-        case "date_asc":
-          query = query.order("start_time", { ascending: true });
-          break;
-        case "date_desc":
-          query = query.order("start_time", { ascending: false });
-          break;
-        case "price_low":
-          query = query.order("price_min", { ascending: true, nullsFirst: false });
-          break;
-        case "price_high":
-          query = query.order("price_max", { ascending: false, nullsFirst: false });
-          break;
-      }
-
-      const { data, error, count } = await query;
-      if (error) throw error;
-
-      // Client-side location filtering
-      let filteredData = data as any[];
-
-      // Transform data to match Event interface if needed, or just cast
-      // The shape returned by supabase will be:
-      // event_categories: [ { category: { ... } }, { category: { ... } } ]
-      // Which matches our interface!
-
-      if (filters?.location) {
-        const locationLower = filters.location.toLowerCase();
-        filteredData = filteredData.filter(
-          (event) =>
-            event.venue?.name?.toLowerCase().includes(locationLower) ||
-            event.venue?.city?.toLowerCase().includes(locationLower)
-        );
-      }
-
-      return { data: filteredData as Event[], count };
+      return undefined;
     },
   });
 }
