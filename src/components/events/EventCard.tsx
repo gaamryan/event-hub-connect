@@ -92,20 +92,35 @@ export function EventCard({
           <div className="w-full h-full bg-gradient-primary opacity-20" />
         )}
 
-        {/* Save Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSave?.(id);
-          }}
-          className="absolute top-3 right-3 w-10 h-10 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-        >
-          {isSaved ? (
-            <BookmarkCheck className="h-5 w-5 text-primary" />
-          ) : (
-            <Bookmark className="h-5 w-5 text-foreground" />
-          )}
-        </button>
+        {/* Action Buttons */}
+        <div className="absolute top-3 right-3 flex gap-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              shareEvent({
+                title,
+                url: `${window.location.origin}/events/${id}`,
+              });
+            }}
+            className="w-9 h-9 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            aria-label="Share event"
+          >
+            <Share2 className="h-4 w-4 text-foreground" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSave?.(id);
+            }}
+            className="w-9 h-9 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+          >
+            {isSaved ? (
+              <BookmarkCheck className="h-5 w-5 text-primary" />
+            ) : (
+              <Bookmark className="h-5 w-5 text-foreground" />
+            )}
+          </button>
+        </div>
 
         {/* Price Badge */}
         {price && (
