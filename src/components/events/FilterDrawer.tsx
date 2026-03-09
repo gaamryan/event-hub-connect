@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, startOfDay, endOfDay, endOfWeek, nextSaturday, nextSunday } from "date-fns";
-import { CalendarIcon, Search, SlidersHorizontal, X } from "lucide-react";
+import { CalendarIcon, Search, SlidersHorizontal, X, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -26,6 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar as CalendarIcon2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSearchSuggestions, type SearchSuggestion } from "@/hooks/useSearchSuggestions";
 
 export interface EventFilters {
   dateFrom?: Date;
