@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSingleEvent } from "@/hooks/useSingleEvent";
 import { useIsAdmin } from "@/hooks/useAuth";
+import { shareEvent } from "@/lib/share";
 
 const ensureUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
