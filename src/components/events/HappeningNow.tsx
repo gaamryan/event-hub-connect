@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { LazyImage } from "@/components/ui/LazyImage";
 
 function useHappeningNowEvents() {
   return useQuery({
@@ -63,7 +64,7 @@ export function HappeningNow() {
   if (!events || events.length === 0) return null;
 
   return (
-    <div className="relative py-6 overflow-hidden">
+    <div className="relative py-6 overflow-hidden min-h-[280px]">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-r from-destructive/5 via-background to-destructive/5" />
 
@@ -113,13 +114,11 @@ export function HappeningNow() {
               <div className="relative rounded-xl overflow-hidden cursor-pointer group border border-destructive/20 bg-card hover:border-destructive/40 transition-all duration-200 shadow-sm hover:shadow-md">
                 {/* Image */}
                 <div className="relative h-32 overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{
-                      backgroundImage: event.image_url
-                        ? `url(${event.image_url})`
-                        : "linear-gradient(135deg, hsl(var(--destructive)) 0%, hsl(var(--destructive)/0.6) 100%)",
-                    }}
+                  <LazyImage
+                    src={event.image_url}
+                    alt={event.title}
+                    className="absolute inset-0 transition-transform duration-500 group-hover:scale-110"
+                    fallback={<div className="absolute inset-0 bg-gradient-to-br from-destructive to-destructive/60" />}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 

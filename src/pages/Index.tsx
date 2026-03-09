@@ -8,10 +8,13 @@ import { EventCard } from "@/components/events/EventCard";
 import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { HappeningNow } from "@/components/events/HappeningNow";
-import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
+import type { EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 
+// Lazy-load heavy components — defers react-day-picker (106KB) until drawer opens
 const EventMap = lazy(() => import("@/components/events/EventMap").then(m => ({ default: m.EventMap })));
+const FilterDrawer = lazy(() => import("@/components/events/FilterDrawer").then(m => ({ default: m.FilterDrawer })));
+
 import { useInfiniteApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
 import { useSettings, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
@@ -208,16 +211,18 @@ const Index = () => {
                 </Button>
               )}
               <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                <FilterDrawer
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  activeFilterCount={activeFilterCount}
-                  categories={categories || []}
-                  searchQuery={searchQuery}
-                  onSearchQueryChange={setSearchQuery}
-                  open={drawerOpen}
-                  onOpenChange={setDrawerOpen}
-                />
+                <Suspense fallback={<div className="w-9 h-9" />}>
+                  <FilterDrawer
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    activeFilterCount={activeFilterCount}
+                    categories={categories || []}
+                    searchQuery={searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    open={drawerOpen}
+                    onOpenChange={setDrawerOpen}
+                  />
+                </Suspense>
               </div>
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
@@ -276,7 +281,7 @@ const Index = () => {
           <EventMap events={filteredEvents} />
         </Suspense>
       ) : (
-        <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
+        <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass} min-h-[600px]`}>
           {eventsLoading ? (
             <EventListSkeleton count={4} />
           ) : filteredEvents && filteredEvents.length > 0 ? (
