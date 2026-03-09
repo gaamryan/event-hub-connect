@@ -211,16 +211,18 @@ const Index = () => {
                 </Button>
               )}
               <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                <FilterDrawer
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  activeFilterCount={activeFilterCount}
-                  categories={categories || []}
-                  searchQuery={searchQuery}
-                  onSearchQueryChange={setSearchQuery}
-                  open={drawerOpen}
-                  onOpenChange={setDrawerOpen}
-                />
+                <Suspense fallback={<div className="w-9 h-9" />}>
+                  <FilterDrawer
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    activeFilterCount={activeFilterCount}
+                    categories={categories || []}
+                    searchQuery={searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    open={drawerOpen}
+                    onOpenChange={setDrawerOpen}
+                  />
+                </Suspense>
               </div>
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
