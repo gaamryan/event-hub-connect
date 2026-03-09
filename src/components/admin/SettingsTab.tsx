@@ -284,6 +284,8 @@ export function SettingsTab() {
                     </Button>
                 </div>
             </div>
+
+            <ImageMigrationSection />
         </div>
     );
 }
