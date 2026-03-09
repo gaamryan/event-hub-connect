@@ -6,7 +6,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettings, useUpdateSetting, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
-import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, ImageIcon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const DEFAULT_IMPORT_TEMPLATE = `please organize and state the following:
 Event Name
@@ -282,6 +284,60 @@ export function SettingsTab() {
                     </Button>
                 </div>
             </div>
+
+            <ImageMigrationSection />
+        </div>
+    );
+}
+
+function ImageMigrationSection() {
+    const [migrating, setMigrating] = useState(false);
+    const [result, setResult] = useState<{ migrated: number; failed: number; errors: string[] } | null>(null);
+
+    const handleMigrate = async () => {
+        setMigrating(true);
+        setResult(null);
+        try {
+            const { data, error } = await supabase.functions.invoke("migrate-images", { method: "POST" });
+            if (error) throw error;
+            setResult(data);
+            if (data.migrated > 0) {
+                toast.success(`Migrated ${data.migrated} images to internal storage`);
+            } else {
+                toast.info("No external images to migrate");
+            }
+        } catch (err) {
+            toast.error("Migration failed: " + (err as Error).message);
+        } finally {
+            setMigrating(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <h3 className="text-lg font-medium">Image Storage</h3>
+            <p className="text-sm text-muted-foreground">
+                Migrate external event images (Facebook, Eventbrite, etc.) to internal storage so they don't break when external links expire.
+            </p>
+            <Button onClick={handleMigrate} disabled={migrating} variant="outline" className="gap-2">
+                {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                {migrating ? "Migrating..." : "Migrate External Images"}
+            </Button>
+            {result && (
+                <div className="text-sm space-y-1">
+                    <p className="text-muted-foreground">
+                        ✓ {result.migrated} migrated · {result.failed} failed
+                    </p>
+                    {result.errors?.length > 0 && (
+                        <details className="text-muted-foreground">
+                            <summary className="cursor-pointer hover:text-foreground">View failures</summary>
+                            <ul className="mt-1 space-y-0.5 text-xs pl-4 list-disc">
+                                {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                            </ul>
+                        </details>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
