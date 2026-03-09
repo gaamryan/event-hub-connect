@@ -3,6 +3,7 @@ import { Calendar, MapPin, Bookmark, BookmarkCheck, Repeat, Share2 } from "lucid
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { shareEvent } from "@/lib/share";
+import { LazyImage } from "@/components/ui/LazyImage";
 
 interface EventCardProps {
   id: string;
