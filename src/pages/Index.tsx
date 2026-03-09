@@ -270,75 +270,81 @@ const Index = () => {
       {/* Featured Events Section */}
       <FeaturedEvents />
 
-      {/* Event List */}
-      <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
-        {eventsLoading ? (
-          <EventListSkeleton count={4} />
-        ) : filteredEvents && filteredEvents.length > 0 ? (
-          <>
-            {filteredEvents.map((event, index) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.05, 0.5) }}
-              >
-                <EventCard
-                  id={event.id}
-                  title={event.title}
-                  description={event.description || undefined}
-                  imageUrl={event.image_url || undefined}
-                  startTime={new Date(event.start_time)}
-                  venueName={event.venue?.name}
-                  categories={event.event_categories?.map(ec => ec.category)}
-                  isFree={event.is_free || false}
-                  pricingAtSite={(event as any).pricing_at_site || false}
-                  priceMin={event.price_min || undefined}
-                  priceMax={event.price_max || undefined}
-                  isRecurring={event.is_recurring || false}
-                />
-              </motion.div>
-            ))}
+      {/* Event List or Map */}
+      {viewMode === "map" ? (
+        <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+          <EventMap events={filteredEvents} />
+        </Suspense>
+      ) : (
+        <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
+          {eventsLoading ? (
+            <EventListSkeleton count={4} />
+          ) : filteredEvents && filteredEvents.length > 0 ? (
+            <>
+              {filteredEvents.map((event, index) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(index * 0.05, 0.5) }}
+                >
+                  <EventCard
+                    id={event.id}
+                    title={event.title}
+                    description={event.description || undefined}
+                    imageUrl={event.image_url || undefined}
+                    startTime={new Date(event.start_time)}
+                    venueName={event.venue?.name}
+                    categories={event.event_categories?.map(ec => ec.category)}
+                    isFree={event.is_free || false}
+                    pricingAtSite={(event as any).pricing_at_site || false}
+                    priceMin={event.price_min || undefined}
+                    priceMax={event.price_max || undefined}
+                    isRecurring={event.is_recurring || false}
+                  />
+                </motion.div>
+              ))}
 
-            {/* Infinite scroll sentinel */}
-            <div ref={loadMoreRef} className="col-span-full flex justify-center py-6">
-              {isFetchingNextPage && (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              {/* Infinite scroll sentinel */}
+              <div ref={loadMoreRef} className="col-span-full flex justify-center py-6">
+                {isFetchingNextPage && (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                )}
+                {!hasNextPage && events.length > PAGE_LIMIT && (
+                  <p className="text-sm text-muted-foreground">You've seen all events</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-16"
+            >
+              <div className="text-6xl mb-4">🎉</div>
+              <h3 className="text-lg font-semibold mb-2">No events found</h3>
+              <p className="text-muted-foreground text-sm">
+                {activeFilterCount > 0 || searchQuery
+                  ? "Try adjusting your filters to see more events."
+                  : "Events will appear here once approved."}
+              </p>
+              {(activeFilterCount > 0 || searchQuery) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setFilters({});
+                    setSearchQuery("");
+                  }}
+                >
+                  Clear all filters
+                </Button>
               )}
-              {!hasNextPage && events.length > PAGE_LIMIT && (
-                <p className="text-sm text-muted-foreground">You've seen all events</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16"
-          >
-            <div className="text-6xl mb-4">🎉</div>
-            <h3 className="text-lg font-semibold mb-2">No events found</h3>
-            <p className="text-muted-foreground text-sm">
-              {activeFilterCount > 0 || searchQuery
-                ? "Try adjusting your filters to see more events."
-                : "Events will appear here once approved."}
-            </p>
-            {(activeFilterCount > 0 || searchQuery) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => {
-                  setFilters({});
-                  setSearchQuery("");
-                }}
-              >
-                Clear all filters
-              </Button>
-            )}
-          </motion.div>
-        )}
-      </div>
+            </motion.div>
+          )}
+        </div>
+      )}
     </AppLayout>
   );
 };
