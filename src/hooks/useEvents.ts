@@ -42,6 +42,8 @@ export interface Event {
     id: string;
     name: string;
     city: string | null;
+    latitude: number | null;
+    longitude: number | null;
   } | null;
   host: {
     id: string;
