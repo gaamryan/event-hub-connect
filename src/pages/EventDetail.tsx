@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import {
@@ -157,6 +158,19 @@ const EventDetail = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
+            <Helmet>
+              <title>{event.title} | GAAM Events</title>
+              <meta name="description" content={event.description?.replace(/<[^>]*>?/gm, "").substring(0, 160) || event.title} />
+              <meta property="og:title" content={event.title} />
+              <meta property="og:description" content={event.description?.replace(/<[^>]*>?/gm, "").substring(0, 160) || event.title} />
+              <meta property="og:type" content="event" />
+              <meta property="og:url" content={window.location.href} />
+              {event.image_url && <meta property="og:image" content={event.image_url} />}
+              <meta name="twitter:card" content="summary_large_image" />
+              <meta name="twitter:title" content={event.title} />
+              <meta name="twitter:description" content={event.description?.replace(/<[^>]*>?/gm, "").substring(0, 160) || event.title} />
+              {event.image_url && <meta name="twitter:image" content={event.image_url} />}
+            </Helmet>
             {/* Hero Image */}
             <div className="relative aspect-[16/10]">
               <LazyImage
