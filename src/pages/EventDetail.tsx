@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSingleEvent } from "@/hooks/useSingleEvent";
 import { useIsAdmin } from "@/hooks/useAuth";
 import { shareEvent } from "@/lib/share";
+import { SimilarEvents } from "@/components/events/SimilarEvents";
 
 const ensureUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
@@ -328,6 +329,17 @@ const EventDetail = () => {
           </motion.div>
         ) : null}
       </div>
+
+      {/* Similar Events */}
+      {event && (
+        <div className="pb-20">
+          <SimilarEvents
+            eventId={event.id}
+            categoryIds={event.event_categories?.map(ec => ec.category.id) || []}
+            venueId={(event.venue as any)?.id}
+          />
+        </div>
+      )}
 
       {/* Fixed Bottom CTA */}
       {event && (() => {
