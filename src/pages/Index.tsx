@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/header";
 import { EventCard } from "@/components/events/EventCard";
 import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
+import { HappeningNow } from "@/components/events/HappeningNow";
 import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 import { useInfiniteApprovedEvents } from "@/hooks/useEvents";
@@ -250,6 +251,9 @@ const Index = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Happening Now */}
+      <HappeningNow />
 
       {/* Featured Events Section */}
       <FeaturedEvents />
