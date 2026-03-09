@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     .replace(/<[^>]*>?/gm, "")
     .substring(0, 200);
 
-  const siteUrl = Deno.env.get("SITE_URL") || `https://${url.hostname}`;
+  const siteUrl = Deno.env.get("SITE_URL") || "https://ilovegaamevents.lovable.app";
   const eventUrl = `${siteUrl}/events/${eventId}`;
 
   const html = `<!DOCTYPE html>
