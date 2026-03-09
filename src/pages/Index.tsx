@@ -8,10 +8,13 @@ import { EventCard } from "@/components/events/EventCard";
 import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { HappeningNow } from "@/components/events/HappeningNow";
-import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
+import type { EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
 
+// Lazy-load heavy components — defers react-day-picker (106KB) until drawer opens
 const EventMap = lazy(() => import("@/components/events/EventMap").then(m => ({ default: m.EventMap })));
+const FilterDrawer = lazy(() => import("@/components/events/FilterDrawer").then(m => ({ default: m.FilterDrawer })));
+
 import { useInfiniteApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
 import { useSettings, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
