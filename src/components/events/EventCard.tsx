@@ -76,22 +76,13 @@ export function EventCard({
       onClick={handleClick}
     >
       {/* Image */}
-      <div className="relative aspect-[16/10] bg-muted overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement?.classList.add('bg-gradient-primary');
-              e.currentTarget.parentElement?.style.setProperty('opacity', '0.2');
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-primary opacity-20" />
-        )}
+      <div className="relative aspect-[16/10] overflow-hidden">
+        <LazyImage
+          src={imageUrl}
+          alt={title}
+          className="w-full h-full"
+          fallback={<div className="w-full h-full bg-gradient-primary opacity-20" />}
+        />
 
         {/* Action Buttons */}
         <div className="absolute top-3 right-3 flex gap-1.5">
