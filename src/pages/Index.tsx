@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/header";
 import { EventCard } from "@/components/events/EventCard";
@@ -9,7 +9,7 @@ import { EventListSkeleton } from "@/components/events/EventCardSkeleton";
 import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
-import { useApprovedEvents, Event } from "@/hooks/useEvents";
+import { useInfiniteApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
 import { useSettings, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -45,48 +45,56 @@ const Index = () => {
     const categoryFromUrl = searchParams.get("category");
     if (categoryFromUrl) {
       setFilters(prev => ({ ...prev, categoryIds: [categoryFromUrl] }));
-      // Clean up the URL param so it doesn't persist on filter changes
       searchParams.delete("category");
       setSearchParams(searchParams, { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [allEvents, setAllEvents] = useState<Event[]>([]);
-
-  const { data: eventsData, isLoading: eventsLoading } = useApprovedEvents({
+  const {
+    data: infiniteData,
+    isLoading: eventsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteApprovedEvents({
     categoryIds: filters.categoryIds,
     filters,
     sortBy,
-    page,
-    limit: PAGE_LIMIT
+    limit: PAGE_LIMIT,
   });
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setPage(0);
-    setAllEvents([]);
-  }, [filters, sortBy, searchQuery]);
-
-  // Append new events when data arrives
-  useEffect(() => {
-    if (eventsData?.data) {
-      if (page === 0) {
-        setAllEvents(eventsData.data as Event[]);
-      } else {
-        setAllEvents(prev => [...prev, ...(eventsData.data as Event[])]);
-      }
-    }
-  }, [eventsData, page]);
-
-  const hasMore = eventsData?.count ? allEvents.length < eventsData.count : false;
-  const events = allEvents;
+  // Flatten all pages into a single array
+  const events = useMemo(
+    () => infiniteData?.pages.flatMap((p) => p.data) ?? [],
+    [infiniteData]
+  );
 
   const { data: categories } = useCategories();
 
+  // Intersection observer for infinite scroll
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Count active filters (excluding search and quick filters)
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  );
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleObserver, {
+      rootMargin: "200px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
+  // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.dateFrom || filters.dateTo) count++;
@@ -175,7 +183,6 @@ const Index = () => {
       >
         <div className={`px-4 transition-all duration-200 ${isMobile && scrolled ? 'py-1.5' : 'py-3'}`}>
           <div className="flex items-center gap-3">
-            {/* Search Input with Filter Button Inside */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -196,7 +203,6 @@ const Index = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
-              {/* Filter Button Inside Search Bar */}
               <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
                 <FilterDrawer
                   filters={filters}
@@ -212,7 +218,6 @@ const Index = () => {
             </div>
             <SortSelect value={sortBy} onChange={setSortBy} />
           </div>
-
         </div>
 
         {/* Active Filter Tags */}
@@ -251,7 +256,7 @@ const Index = () => {
 
       {/* Event List */}
       <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
-        {eventsLoading && page === 0 ? (
+        {eventsLoading ? (
           <EventListSkeleton count={4} />
         ) : filteredEvents && filteredEvents.length > 0 ? (
           <>
@@ -260,7 +265,7 @@ const Index = () => {
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: Math.min(index * 0.05, 0.5) }}
               >
                 <EventCard
                   id={event.id}
@@ -279,18 +284,15 @@ const Index = () => {
               </motion.div>
             ))}
 
-            {/* Load More Trigger */}
-            {hasMore && (
-              <div className="flex justify-center pt-4 pb-8">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={eventsLoading}
-                >
-                  {eventsLoading ? "Loading..." : "Load More Events"}
-                </Button>
-              </div>
-            )}
+            {/* Infinite scroll sentinel */}
+            <div ref={loadMoreRef} className="col-span-full flex justify-center py-6">
+              {isFetchingNextPage && (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              )}
+              {!hasNextPage && events.length > PAGE_LIMIT && (
+                <p className="text-sm text-muted-foreground">You've seen all events</p>
+              )}
+            </div>
           </>
         ) : (
           <motion.div
