@@ -116,7 +116,7 @@ export function FeaturedEvents() {
   }
 
   return (
-    <div className="relative py-8 overflow-hidden">
+    <div className="relative py-8 overflow-hidden min-h-[340px]">
       {/* Unique background to differentiate from rest of page */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-accent/8" />
       <div className="absolute inset-0 opacity-[0.03]" style={{

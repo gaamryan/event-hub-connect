@@ -276,7 +276,7 @@ const Index = () => {
           <EventMap events={filteredEvents} />
         </Suspense>
       ) : (
-        <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass}`}>
+        <div className={`p-4 grid gap-4 ${mobileColsClass} ${desktopColsClass} min-h-[600px]`}>
           {eventsLoading ? (
             <EventListSkeleton count={4} />
           ) : filteredEvents && filteredEvents.length > 0 ? (

@@ -64,7 +64,7 @@ export function HappeningNow() {
   if (!events || events.length === 0) return null;
 
   return (
-    <div className="relative py-6 overflow-hidden">
+    <div className="relative py-6 overflow-hidden min-h-[280px]">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-r from-destructive/5 via-background to-destructive/5" />
 
