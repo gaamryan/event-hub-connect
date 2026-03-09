@@ -170,13 +170,11 @@ export function FeaturedEvents() {
               <div className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card border border-border/50">
                 {/* Image */}
                 <div className="relative h-44 overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{
-                      backgroundImage: event.image_url
-                        ? `url(${event.image_url})`
-                        : "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)",
-                    }}
+                  <LazyImage
+                    src={event.image_url}
+                    alt={event.title}
+                    className="absolute inset-0 transition-transform duration-500 group-hover:scale-110"
+                    fallback={<div className="absolute inset-0 bg-gradient-primary" />}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
