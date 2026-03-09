@@ -40,6 +40,7 @@ const Index = () => {
   const [filters, setFilters] = useState<EventFilters>({});
   const [sortBy, setSortBy] = useState<SortOption>("date_asc");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // Read category from URL query param on mount
   useEffect(() => {
