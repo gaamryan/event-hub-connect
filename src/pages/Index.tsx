@@ -10,6 +10,8 @@ import { FeaturedEvents } from "@/components/events/FeaturedEvents";
 import { HappeningNow } from "@/components/events/HappeningNow";
 import { FilterDrawer, type EventFilters } from "@/components/events/FilterDrawer";
 import { SortSelect, type SortOption } from "@/components/events/SortSelect";
+
+const EventMap = lazy(() => import("@/components/events/EventMap").then(m => ({ default: m.EventMap })));
 import { useInfiniteApprovedEvents } from "@/hooks/useEvents";
 import { useCategories } from "@/hooks/useCategories";
 import { useSettings, DEFAULT_FEED_DISPLAY } from "@/hooks/useSettings";
