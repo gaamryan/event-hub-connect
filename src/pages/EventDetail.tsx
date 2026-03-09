@@ -368,32 +368,52 @@ const EventDetail = () => {
 function EventDetailSkeleton() {
   return (
     <div>
-      <Skeleton className="aspect-[16/10] w-full" />
+      {/* Hero image */}
+      <div className="skeleton aspect-[16/10] w-full" />
       <div className="p-4 space-y-6">
-        <Skeleton className="h-6 w-24" />
-        <Skeleton className="h-8 w-3/4" />
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-32" />
-            </div>
+        {/* Category badges */}
+        <div className="flex gap-2">
+          <div className="skeleton h-6 w-20 rounded-full" />
+          <div className="skeleton h-6 w-24 rounded-full" />
+        </div>
+        {/* Title */}
+        <div className="space-y-2">
+          <div className="skeleton h-7 w-4/5" />
+          <div className="skeleton h-7 w-2/3" />
+        </div>
+        {/* Date row */}
+        <div className="flex items-center gap-3">
+          <div className="skeleton h-10 w-10 rounded-full" />
+          <div className="space-y-2 flex-1">
+            <div className="skeleton h-4 w-48" />
+            <div className="skeleton h-3 w-28" />
           </div>
         </div>
-        <Skeleton className="h-40 w-full rounded-xl" />
+        {/* Venue row */}
+        <div className="flex items-center gap-3">
+          <div className="skeleton h-10 w-10 rounded-full" />
+          <div className="space-y-2 flex-1">
+            <div className="skeleton h-4 w-40" />
+            <div className="skeleton h-3 w-56" />
+          </div>
+        </div>
+        {/* Host row */}
+        <div className="flex items-center gap-3">
+          <div className="skeleton h-10 w-10 rounded-full" />
+          <div className="space-y-2 flex-1">
+            <div className="skeleton h-4 w-36" />
+            <div className="skeleton h-3 w-24" />
+          </div>
+        </div>
+        {/* Map */}
+        <div className="skeleton h-40 w-full rounded-xl" />
+        {/* Description */}
         <div className="space-y-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+          <div className="skeleton h-5 w-36" />
+          <div className="skeleton h-4 w-full" />
+          <div className="skeleton h-4 w-full" />
+          <div className="skeleton h-4 w-5/6" />
+          <div className="skeleton h-4 w-2/3" />
         </div>
       </div>
     </div>
