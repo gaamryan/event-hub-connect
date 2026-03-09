@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { LazyImage } from "@/components/ui/LazyImage";
 
 function useHappeningNowEvents() {
   return useQuery({
