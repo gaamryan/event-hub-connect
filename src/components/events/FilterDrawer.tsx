@@ -67,9 +67,12 @@ export function FilterDrawer({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
 }: FilterDrawerProps) {
+  const navigate = useNavigate();
   const [localFilters, setLocalFilters] = useState<EventFilters>(filters);
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [internalOpen, setInternalOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const { data: suggestions, isLoading: suggestionsLoading } = useSearchSuggestions(localSearch);
   
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = (v: boolean) => {
