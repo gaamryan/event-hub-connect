@@ -49,6 +49,7 @@ const EventDetail = () => {
       title: event.title,
       description: event.description,
       url: window.location.href,
+      eventId: event.id,
     });
   };
 
