@@ -144,6 +144,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         end_time: endDateTime?.toISOString() || null,
         category_id: data.category_id || null,
         venue_id: venueId,
+        host_id: hostId,
         image_url: data.image_url || null,
         ticket_url: data.ticket_url || null,
         source_url: data.source_url || null,
