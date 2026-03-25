@@ -15,6 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { VenueCombobox } from "@/components/admin/VenueCombobox";
+import { HostCombobox } from "@/components/admin/HostCombobox";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCategories } from "@/hooks/useCategories";
@@ -32,6 +34,7 @@ const eventSchema = z.object({
   venue_name: z.string().max(200, "Venue name must be less than 200 characters").optional(),
   venue_city: z.string().max(100, "City must be less than 100 characters").optional(),
   venue_address: z.string().max(300, "Address must be less than 300 characters").optional(),
+  host_name: z.string().max(200, "Host name must be less than 200 characters").optional(),
   image_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   ticket_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   source_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
