@@ -406,46 +406,29 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
             />
 
             {/* Venue */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Label className="text-sm font-medium">Venue (optional)</Label>
-              <FormField
-                control={form.control}
-                name="venue_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input placeholder="Venue name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <p className="text-xs text-muted-foreground">Search existing venues or enter a new one</p>
+              <VenueCombobox
+                name={form.watch("venue_name") || ""}
+                city={form.watch("venue_city") || ""}
+                address={form.watch("venue_address") || ""}
+                onSelect={(venue) => setSelectedVenueId(venue?.id || null)}
+                onNameChange={(v) => form.setValue("venue_name", v)}
+                onCityChange={(v) => form.setValue("venue_city", v)}
+                onAddressChange={(v) => form.setValue("venue_address", v)}
               />
-              <div className="grid grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="venue_city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input placeholder="City" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="venue_address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input placeholder="Address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+            </div>
+
+            {/* Host */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Host / Organizer (optional)</Label>
+              <p className="text-xs text-muted-foreground">Search existing hosts or enter a new one</p>
+              <HostCombobox
+                name={form.watch("host_name") || ""}
+                onSelect={(host) => setSelectedHostId(host?.id || null)}
+                onNameChange={(v) => form.setValue("host_name", v)}
+              />
             </div>
 
             {/* Pricing */}
