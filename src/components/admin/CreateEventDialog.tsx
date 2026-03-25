@@ -103,9 +103,9 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         endDateTime.setHours(endHours, endMinutes, 0, 0);
       }
 
-      // Create venue if provided
-      let venueId: string | null = null;
-      if (data.venue_name) {
+      // Resolve venue: reuse selected or create new
+      let venueId: string | null = selectedVenueId;
+      if (!venueId && data.venue_name) {
         const { data: venueData, error: venueError } = await supabase
           .from("venues")
           .insert({
@@ -118,6 +118,22 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
 
         if (venueError) throw venueError;
         venueId = venueData.id;
+      }
+
+      // Resolve host: reuse selected or create new
+      let hostId: string | null = selectedHostId;
+      if (!hostId && data.host_name) {
+        const { data: hostData, error: hostError } = await supabase
+          .from("hosts")
+          .insert({
+            name: data.host_name,
+            source: "manual",
+          })
+          .select("id")
+          .single();
+
+        if (hostError) throw hostError;
+        hostId = hostData.id;
       }
 
       // Create parent event
