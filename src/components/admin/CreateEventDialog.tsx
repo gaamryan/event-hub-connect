@@ -72,6 +72,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       venue_name: "",
       venue_city: "",
       venue_address: "",
+      host_name: "",
       image_url: "",
       ticket_url: "",
       source_url: "",
