@@ -15,6 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { VenueCombobox } from "@/components/admin/VenueCombobox";
+import { HostCombobox } from "@/components/admin/HostCombobox";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCategories } from "@/hooks/useCategories";
@@ -32,6 +34,7 @@ const eventSchema = z.object({
   venue_name: z.string().max(200, "Venue name must be less than 200 characters").optional(),
   venue_city: z.string().max(100, "City must be less than 100 characters").optional(),
   venue_address: z.string().max(300, "Address must be less than 300 characters").optional(),
+  host_name: z.string().max(200, "Host name must be less than 200 characters").optional(),
   image_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   ticket_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   source_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
@@ -54,6 +57,8 @@ interface CreateEventDialogProps {
 
 export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
 
@@ -67,6 +72,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       venue_name: "",
       venue_city: "",
       venue_address: "",
+      host_name: "",
       image_url: "",
       ticket_url: "",
       source_url: "",
@@ -97,9 +103,9 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         endDateTime.setHours(endHours, endMinutes, 0, 0);
       }
 
-      // Create venue if provided
-      let venueId: string | null = null;
-      if (data.venue_name) {
+      // Resolve venue: reuse selected or create new
+      let venueId: string | null = selectedVenueId;
+      if (!venueId && data.venue_name) {
         const { data: venueData, error: venueError } = await supabase
           .from("venues")
           .insert({
@@ -114,6 +120,22 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         venueId = venueData.id;
       }
 
+      // Resolve host: reuse selected or create new
+      let hostId: string | null = selectedHostId;
+      if (!hostId && data.host_name) {
+        const { data: hostData, error: hostError } = await supabase
+          .from("hosts")
+          .insert({
+            name: data.host_name,
+            source: "manual",
+          })
+          .select("id")
+          .single();
+
+        if (hostError) throw hostError;
+        hostId = hostData.id;
+      }
+
       // Create parent event
       const { data: parentEvent, error: eventError } = await supabase.from("events").insert({
         title: data.title,
@@ -122,6 +144,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         end_time: endDateTime?.toISOString() || null,
         category_id: data.category_id || null,
         venue_id: venueId,
+        host_id: hostId,
         image_url: data.image_url || null,
         ticket_url: data.ticket_url || null,
         source_url: data.source_url || null,
@@ -195,6 +218,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       queryClient.invalidateQueries({ queryKey: ["events"] });
       onOpenChange(false);
       form.reset();
+      setSelectedVenueId(null);
+      setSelectedHostId(null);
     } catch (err) {
       console.error(err);
       toast.error("Failed to create event");
@@ -381,46 +406,29 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
             />
 
             {/* Venue */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Label className="text-sm font-medium">Venue (optional)</Label>
-              <FormField
-                control={form.control}
-                name="venue_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input placeholder="Venue name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <p className="text-xs text-muted-foreground">Search existing venues or enter a new one</p>
+              <VenueCombobox
+                name={form.watch("venue_name") || ""}
+                city={form.watch("venue_city") || ""}
+                address={form.watch("venue_address") || ""}
+                onSelect={(venue) => setSelectedVenueId(venue?.id || null)}
+                onNameChange={(v) => form.setValue("venue_name", v)}
+                onCityChange={(v) => form.setValue("venue_city", v)}
+                onAddressChange={(v) => form.setValue("venue_address", v)}
               />
-              <div className="grid grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="venue_city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input placeholder="City" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="venue_address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input placeholder="Address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+            </div>
+
+            {/* Host */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Host / Organizer (optional)</Label>
+              <p className="text-xs text-muted-foreground">Search existing hosts or enter a new one</p>
+              <HostCombobox
+                name={form.watch("host_name") || ""}
+                onSelect={(host) => setSelectedHostId(host?.id || null)}
+                onNameChange={(v) => form.setValue("host_name", v)}
+              />
             </div>
 
             {/* Pricing */}
