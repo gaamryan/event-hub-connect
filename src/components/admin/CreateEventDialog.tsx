@@ -218,6 +218,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
       queryClient.invalidateQueries({ queryKey: ["events"] });
       onOpenChange(false);
       form.reset();
+      setSelectedVenueId(null);
+      setSelectedHostId(null);
     } catch (err) {
       console.error(err);
       toast.error("Failed to create event");
