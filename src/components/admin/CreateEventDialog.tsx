@@ -57,6 +57,8 @@ interface CreateEventDialogProps {
 
 export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
 
