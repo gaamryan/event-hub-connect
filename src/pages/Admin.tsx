@@ -277,6 +277,10 @@ const Admin = () => {
               <Database className="mr-2 h-4 w-4" />
               Data Sources
             </TabsTrigger>
+            <TabsTrigger value="venues-hosts" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
+              <MapPin className="mr-2 h-4 w-4" />
+              Venues & Hosts
+            </TabsTrigger>
             <TabsTrigger value="settings" className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 font-medium">
               <Settings className="mr-2 h-4 w-4" />
               Settings
