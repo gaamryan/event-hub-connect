@@ -18,6 +18,7 @@ import { ImportEventDialog } from "@/components/admin/ImportEventDialog";
 import { CreateEventDialog } from "@/components/admin/CreateEventDialog";
 import { DataSources } from "@/components/admin/DataSources";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { VenueCombobox } from "@/components/admin/VenueCombobox";
 import { SettingsTab } from "@/components/admin/SettingsTab";
 import { StylesTab } from "@/components/admin/StylesTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
