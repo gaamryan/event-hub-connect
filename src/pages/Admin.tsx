@@ -20,6 +20,7 @@ import { DataSources } from "@/components/admin/DataSources";
 import { ImageUpload } from "@/components/admin/ImageUpload";
 import { VenueCombobox } from "@/components/admin/VenueCombobox";
 import { SettingsTab } from "@/components/admin/SettingsTab";
+import { VenuesHostsTab } from "@/components/admin/VenuesHostsTab";
 import { StylesTab } from "@/components/admin/StylesTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { BulkEditDialog } from "@/components/admin/BulkEditDialog";
