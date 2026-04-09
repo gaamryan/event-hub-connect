@@ -903,29 +903,57 @@ const Admin = () => {
                       recurrence_frequency: (editingEvent as any).recurrence_frequency || null,
                     } as any).eq('id', editingEvent.id);
 
-                    // ... (existing venue/host update logic)
-                    // 2. Update Venue (if venue exists and has ID)
-                    if (!eventError && editingEvent.venue?.id) {
-                      const { error: venueError } = await supabase.from('venues').update({
-                        name: editingEvent.venue.name,
-                        address_line_1: (editingEvent.venue as any).address_line_1,
-                        address_line_2: (editingEvent.venue as any).address_line_2,
-                        city: editingEvent.venue.city,
-                        state: (editingEvent.venue as any).state,
-                        postal_code: (editingEvent.venue as any).postal_code,
-                        map_url: (editingEvent.venue as any).map_url
-                      }).eq('id', editingEvent.venue.id);
-
-                      if (venueError) console.error("Failed to update venue:", venueError);
+                    // 2. Update or Create Venue
+                    if (!eventError && editingEvent.venue?.name) {
+                      if (editingEvent.venue.id) {
+                        // Update existing venue
+                        const { error: venueError } = await supabase.from('venues').update({
+                          name: editingEvent.venue.name,
+                          address_line_1: (editingEvent.venue as any).address_line_1,
+                          address_line_2: (editingEvent.venue as any).address_line_2,
+                          city: editingEvent.venue.city,
+                          state: (editingEvent.venue as any).state,
+                          postal_code: (editingEvent.venue as any).postal_code,
+                          map_url: (editingEvent.venue as any).map_url
+                        }).eq('id', editingEvent.venue.id);
+                        if (venueError) console.error("Failed to update venue:", venueError);
+                      } else {
+                        // Create new venue and link to event
+                        const { data: newVenue, error: venueError } = await supabase.from('venues').insert({
+                          name: editingEvent.venue.name,
+                          address_line_1: (editingEvent.venue as any).address_line_1 || null,
+                          address_line_2: (editingEvent.venue as any).address_line_2 || null,
+                          city: editingEvent.venue.city || null,
+                          state: (editingEvent.venue as any).state || null,
+                          postal_code: (editingEvent.venue as any).postal_code || null,
+                          map_url: (editingEvent.venue as any).map_url || null
+                        }).select('id').single();
+                        if (venueError) {
+                          console.error("Failed to create venue:", venueError);
+                        } else {
+                          await supabase.from('events').update({ venue_id: newVenue.id }).eq('id', editingEvent.id);
+                        }
+                      }
                     }
 
-                    // 3. Update Host (if host exists and has ID)
-                    if (!eventError && editingEvent.host?.id) {
-                      const { error: hostError } = await supabase.from('hosts').update({
-                        name: editingEvent.host.name
-                      }).eq('id', editingEvent.host.id);
-
-                      if (hostError) console.error("Failed to update host:", hostError);
+                    // 3. Update or Create Host
+                    if (!eventError && editingEvent.host?.name) {
+                      if (editingEvent.host.id) {
+                        const { error: hostError } = await supabase.from('hosts').update({
+                          name: editingEvent.host.name
+                        }).eq('id', editingEvent.host.id);
+                        if (hostError) console.error("Failed to update host:", hostError);
+                      } else {
+                        const { data: newHost, error: hostError } = await supabase.from('hosts').insert({
+                          name: editingEvent.host.name,
+                          source: 'manual' as const,
+                        }).select('id').single();
+                        if (hostError) {
+                          console.error("Failed to create host:", hostError);
+                        } else {
+                          await supabase.from('events').update({ host_id: newHost.id }).eq('id', editingEvent.id);
+                        }
+                      }
                     }
 
                     // 4. Update Categories (Delete all, then insert new)
