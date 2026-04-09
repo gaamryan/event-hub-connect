@@ -549,59 +549,60 @@ const Admin = () => {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Venue Details</label>
-                  <div className="grid gap-2">
+                  <p className="text-xs text-muted-foreground">Search existing venues or enter new details</p>
+                  <VenueCombobox
+                    name={editingEvent.venue?.name || ''}
+                    city={editingEvent.venue?.city || ''}
+                    address={(editingEvent.venue as any)?.address_line_1 || ''}
+                    onSelect={(venue) => {
+                      if (venue) {
+                        setEditingEvent({ ...editingEvent, venue: venue as any });
+                      } else {
+                        // Clear venue id when typing new name
+                        const newVenue = { ...(editingEvent.venue || {}), id: undefined };
+                        setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                      }
+                    }}
+                    onNameChange={(v) => {
+                      const newVenue = { ...(editingEvent.venue || {}), name: v };
+                      setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                    }}
+                    onCityChange={(v) => {
+                      const newVenue = { ...(editingEvent.venue || {}), city: v };
+                      setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                    }}
+                    onAddressChange={(v) => {
+                      const newVenue = { ...(editingEvent.venue || {}), address_line_1: v };
+                      setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                    }}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
                     <Input
-                      placeholder="Venue Name"
-                      value={editingEvent.venue?.name || ''}
+                      placeholder="Address Line 2"
+                      value={(editingEvent.venue as any)?.address_line_2 || ''}
                       onChange={(e) => {
-                        const newVenue = { ...(editingEvent.venue || {}), name: e.target.value };
+                        const newVenue = { ...(editingEvent.venue || {}), address_line_2: e.target.value };
                         setEditingEvent({ ...editingEvent, venue: newVenue as any });
                       }}
                     />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="Address Line 1"
-                        value={(editingEvent.venue as any)?.address_line_1 || ''}
-                        onChange={(e) => {
-                          const newVenue = { ...(editingEvent.venue || {}), address_line_1: e.target.value };
-                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
-                        }}
-                      />
-                      <Input
-                        placeholder="Address Line 2"
-                        value={(editingEvent.venue as any)?.address_line_2 || ''}
-                        onChange={(e) => {
-                          const newVenue = { ...(editingEvent.venue || {}), address_line_2: e.target.value };
-                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
-                        }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input
-                        placeholder="City"
-                        value={editingEvent.venue?.city || ''}
-                        onChange={(e) => {
-                          const newVenue = { ...(editingEvent.venue || {}), city: e.target.value };
-                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
-                        }}
-                      />
-                      <Input
-                        placeholder="State"
-                        value={(editingEvent.venue as any)?.state || ''}
-                        onChange={(e) => {
-                          const newVenue = { ...(editingEvent.venue || {}), state: e.target.value };
-                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
-                        }}
-                      />
-                      <Input
-                        placeholder="Zip"
-                        value={(editingEvent.venue as any)?.postal_code || ''}
-                        onChange={(e) => {
-                          const newVenue = { ...(editingEvent.venue || {}), postal_code: e.target.value };
-                          setEditingEvent({ ...editingEvent, venue: newVenue as any });
-                        }}
-                      />
-                    </div>
+                    <Input
+                      placeholder="State"
+                      value={(editingEvent.venue as any)?.state || ''}
+                      onChange={(e) => {
+                        const newVenue = { ...(editingEvent.venue || {}), state: e.target.value };
+                        setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Zip"
+                      value={(editingEvent.venue as any)?.postal_code || ''}
+                      onChange={(e) => {
+                        const newVenue = { ...(editingEvent.venue || {}), postal_code: e.target.value };
+                        setEditingEvent({ ...editingEvent, venue: newVenue as any });
+                      }}
+                    />
                     <Input
                       placeholder="Google Maps Link"
                       value={(editingEvent.venue as any)?.map_url || ''}
