@@ -936,13 +936,24 @@ const Admin = () => {
                       }
                     }
 
-                    // 3. Update Host (if host exists and has ID)
-                    if (!eventError && editingEvent.host?.id) {
-                      const { error: hostError } = await supabase.from('hosts').update({
-                        name: editingEvent.host.name
-                      }).eq('id', editingEvent.host.id);
-
-                      if (hostError) console.error("Failed to update host:", hostError);
+                    // 3. Update or Create Host
+                    if (!eventError && editingEvent.host?.name) {
+                      if (editingEvent.host.id) {
+                        const { error: hostError } = await supabase.from('hosts').update({
+                          name: editingEvent.host.name
+                        }).eq('id', editingEvent.host.id);
+                        if (hostError) console.error("Failed to update host:", hostError);
+                      } else {
+                        const { data: newHost, error: hostError } = await supabase.from('hosts').insert({
+                          name: editingEvent.host.name,
+                          source: 'manual' as const,
+                        }).select('id').single();
+                        if (hostError) {
+                          console.error("Failed to create host:", hostError);
+                        } else {
+                          await supabase.from('events').update({ host_id: newHost.id }).eq('id', editingEvent.id);
+                        }
+                      }
                     }
 
                     // 4. Update Categories (Delete all, then insert new)
