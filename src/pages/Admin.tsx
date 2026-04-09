@@ -44,7 +44,8 @@ import {
   Palette,
   RefreshCw,
   Repeat,
-  BarChart3
+  BarChart3,
+  MapPin,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
