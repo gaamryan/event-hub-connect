@@ -418,8 +418,11 @@ function HostsSection() {
   };
 
   const handleSave = async (host: Host) => {
-    const { id, created_at, ...fields } = host;
-    const { error } = await supabase.from("hosts").update(fields).eq("id", id);
+    const { id, created_at, source, ...fields } = host;
+    const { error } = await supabase.from("hosts").update({
+      ...fields,
+      source: source as any,
+    }).eq("id", id);
     if (error) {
       toast.error("Failed to update host");
     } else {
