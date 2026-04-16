@@ -16,10 +16,11 @@ export function useCategories() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
+        .select("id, name, slug, icon, color, sort_order")
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data as Category[];
     },
+    staleTime: 10 * 60 * 1000, // categories rarely change — 10 min
   });
 }

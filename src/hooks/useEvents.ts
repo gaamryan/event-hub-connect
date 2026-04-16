@@ -4,7 +4,11 @@ import type { EventFilters } from "@/components/events/FilterDrawer";
 import type { SortOption } from "@/components/events/SortSelect";
 import { startOfDay } from "date-fns";
 
-
+// Minimal column selections to reduce data transfer
+const EVENT_LIST_COLUMNS = `id, title, description, start_time, end_time, image_url, ticket_url, price_min, price_max, is_free, status, source, source_url, featured, is_recurring, recurrence_frequency, created_at, pricing_at_site`;
+const VENUE_LIST_COLUMNS = `id, name, city, latitude, longitude`;
+const HOST_LIST_COLUMNS = `id, name`;
+const CATEGORY_COLUMNS = `id, name, slug, icon, color`;
 
 // Pagination response wrapper
 export interface PaginatedResult<T> {
@@ -67,8 +71,6 @@ interface UseApprovedEventsOptions {
 export function useApprovedEvents(options: UseApprovedEventsOptions = {}) {
   const { categoryId, categoryIds, filters, sortBy = "date_asc", page = 0, limit = 20 } = options;
 
-  const hasCategoryFilter = !!(categoryId || (categoryIds && categoryIds.length > 0));
-
   return useQuery({
     queryKey: ["events", "approved", categoryId, categoryIds, filters, sortBy, page, limit],
     queryFn: async () => {
@@ -96,8 +98,8 @@ async function fetchApprovedEvents({
   const hasCategoryFilter = !!(categoryId || (categoryIds && categoryIds.length > 0));
 
   const selectQuery = hasCategoryFilter
-    ? `*, venue:venues(*), host:hosts(*), event_categories!inner(category:categories(*))`
-    : `*, venue:venues(*), host:hosts(*), event_categories(category:categories(*))`;
+    ? `${EVENT_LIST_COLUMNS}, venue:venues(${VENUE_LIST_COLUMNS}), host:hosts(${HOST_LIST_COLUMNS}), event_categories!inner(category:categories(${CATEGORY_COLUMNS}))`
+    : `${EVENT_LIST_COLUMNS}, venue:venues(${VENUE_LIST_COLUMNS}), host:hosts(${HOST_LIST_COLUMNS}), event_categories(category:categories(${CATEGORY_COLUMNS}))`;
 
   let query = supabase
     .from("events")
@@ -197,11 +199,11 @@ export function useFeaturedEvents() {
       const { data, error } = await supabase
         .from("events")
         .select(`
-          *,
-          venue:venues(*),
-          host:hosts(*),
+          ${EVENT_LIST_COLUMNS},
+          venue:venues(${VENUE_LIST_COLUMNS}),
+          host:hosts(${HOST_LIST_COLUMNS}),
           event_categories(
-            category:categories(*)
+            category:categories(${CATEGORY_COLUMNS})
           )
         `)
         .eq("status", "approved")
@@ -216,6 +218,9 @@ export function useFeaturedEvents() {
   });
 }
 
+// Admin: only select columns needed for the list view + edit drawer
+const ADMIN_EVENT_COLUMNS = `id, title, description, start_time, end_time, image_url, ticket_url, price_min, price_max, is_free, status, source, source_url, source_id, featured, is_recurring, recurrence_frequency, recurrence_until, parent_event_id, created_at, pricing_at_site, category_id, venue_id, host_id`;
+
 export function useAllEvents(filters?: {
   status?: "draft" | "pending" | "approved" | "rejected";
   source?: "manual" | "eventbrite" | "meetup" | "ticketspice" | "facebook";
@@ -227,14 +232,15 @@ export function useAllEvents(filters?: {
       let query = supabase
         .from("events")
         .select(`
-          *,
-          venue:venues(*),
-          host:hosts(*),
+          ${ADMIN_EVENT_COLUMNS},
+          venue:venues(${VENUE_LIST_COLUMNS}, address_line_1, address_line_2, state, postal_code),
+          host:hosts(${HOST_LIST_COLUMNS}, logo_url, website_url),
           event_categories(
-            category:categories(*)
+            category:categories(${CATEGORY_COLUMNS})
           )
         `)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (filters?.status) {
         query = query.eq("status", filters.status);
@@ -250,6 +256,7 @@ export function useAllEvents(filters?: {
       if (error) throw error;
       return data as Event[];
     },
+    staleTime: 2 * 60 * 1000, // 2 min for admin — fresher data needed
   });
 }
 

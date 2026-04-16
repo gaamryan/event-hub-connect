@@ -124,7 +124,7 @@ export function useSettings() {
         queryKey: ["settings"],
         queryFn: async () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error } = await (supabase as any).from("settings").select("*");
+            const { data, error } = await (supabase as any).from("settings").select("key, value");
             if (error) throw error;
 
             const settingsObject: Settings = {};
@@ -134,6 +134,7 @@ export function useSettings() {
             });
             return settingsObject;
         },
+        staleTime: 10 * 60 * 1000, // settings rarely change — 10 min
     });
 }
 
