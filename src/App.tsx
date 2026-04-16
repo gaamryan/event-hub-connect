@@ -17,7 +17,16 @@ const Admin = lazy(() => import("./pages/Admin"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,   // 5 min — data considered fresh, no refetch
+      gcTime: 15 * 60 * 1000,     // 15 min — keep unused cache before GC
+      refetchOnWindowFocus: false, // don't refetch every tab switch
+      retry: 1,                    // single retry on failure
+    },
+  },
+});
 
 // Loading fallback for Suspense
 function PageLoader() {
